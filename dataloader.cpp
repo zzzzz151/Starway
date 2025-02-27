@@ -4,6 +4,8 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <array>
+#include <algorithm>
 #include <fstream>
 #include <cassert>
 #include <thread>
@@ -13,13 +15,17 @@ std::string DATA_FILE_PATH = "";
 size_t DATA_FILE_BYTES = 0;
 size_t BATCH_SIZE = 0;
 size_t NUM_THREADS = 0;
+std::array<size_t, 64> INPUT_BUCKETS_MAP = { };
 
 std::vector<Batch> gBatches = { }; // NUM_THREADS batches
 size_t gNextBatchIdx = 0; // 0 to NUM_THREADS-1
 size_t gDataFilePos = 0;
 
 extern "C" API void init(
-    const char* dataFilePath, const i32 batchSize, const i32 numThreads)
+    const char* dataFilePath,
+    const i32 batchSize,
+    const i32 numThreads,
+    const std::array<size_t, 64>& inputBucketsMap)
 {
     DATA_FILE_PATH = static_cast<std::string>(dataFilePath);
 
@@ -63,6 +69,8 @@ extern "C" API void init(
         exit(EXIT_FAILURE);
     }
 
+    INPUT_BUCKETS_MAP = inputBucketsMap;
+
     for (size_t i = 0; i < NUM_THREADS; i++)
         gBatches.push_back(Batch(BATCH_SIZE));
 }
@@ -84,23 +92,37 @@ inline void loadBatch(const size_t threadId)
 
     // Fill the batch gBatches[threadId]
 
-    Batch& batch = gBatches[threadId];
-    batch.numActiveFeatures = 0;
-
-    DataEntry dataEntry;
-
     const auto featureIdx = [] (
         const auto pieceColor,
         const auto pieceType,
-        const auto square,
-        const auto kingSquare) constexpr -> size_t
+        auto square,
+        const auto kingSquare,
+        auto enemyQueenSquare) constexpr -> size_t
     {
         const bool flipVAxis = static_cast<size_t>(kingSquare) % 8 > 3;
 
-        return static_cast<size_t>(pieceColor) * 384
+        if (flipVAxis) {
+            square ^= 7;
+            enemyQueenSquare ^= 7;
+        }
+
+        const size_t inputBucket = enemyQueenSquare >= INPUT_BUCKETS_MAP.size()
+                                 ? 0
+                                 : INPUT_BUCKETS_MAP[static_cast<size_t>(enemyQueenSquare)];
+
+        return inputBucket * 768
+             + static_cast<size_t>(pieceColor) * 384
              + static_cast<size_t>(pieceType) * 64
-             + static_cast<size_t>(square) ^ (flipVAxis ? 7 : 0);
+             + static_cast<size_t>(square);
     };
+
+    Batch& batch = gBatches[threadId];
+
+    // Reset all features to -1
+    std::fill(batch.activeFeaturesWhite, batch.activeFeaturesWhite + BATCH_SIZE * 32, -1);
+    std::fill(batch.activeFeaturesBlack, batch.activeFeaturesBlack + BATCH_SIZE * 32, -1);
+
+    DataEntry dataEntry;
 
     for (size_t entryIdx = 0; entryIdx < BATCH_SIZE; entryIdx++)
     {
@@ -108,27 +130,26 @@ inline void loadBatch(const size_t threadId)
 
         batch.isWhiteStm[entryIdx] = dataEntry.isWhiteStm;
 
+        size_t piecesProcessed = 0;
+
         while (dataEntry.occupied > 0)
         {
             const auto square = popLsb(dataEntry.occupied);
             const auto pieceColor = dataEntry.pieces & 0b1;
             const auto pieceType = (dataEntry.pieces & 0b1110) >> 1;
 
-            const size_t idx = batch.numActiveFeatures * 2;
+            const size_t idx = entryIdx * 32 + piecesProcessed;
 
-            batch.activeFeaturesWhite[idx] = static_cast<i16>(entryIdx);
-            batch.activeFeaturesBlack[idx] = static_cast<i16>(entryIdx);
+            batch.activeFeaturesWhite[idx] = static_cast<i32>(featureIdx(
+                pieceColor, pieceType, square, dataEntry.whiteKingSquare, dataEntry.blackQueenSquare
+            ));
 
-            batch.activeFeaturesWhite[idx + 1] = static_cast<i16>(
-                featureIdx(pieceColor, pieceType, square, dataEntry.whiteKingSquare)
-            );
+            batch.activeFeaturesBlack[idx] = static_cast<i32>(featureIdx(
+                pieceColor, pieceType, square, dataEntry.blackKingSquare, dataEntry.whiteQueenSquare
+            ));
 
-            batch.activeFeaturesBlack[idx + 1] = static_cast<i16>(
-                featureIdx(pieceColor, pieceType, square, dataEntry.blackKingSquare)
-            );
-
-            batch.numActiveFeatures++;
             dataEntry.pieces >>= 4;
+            piecesProcessed++;
         }
 
         batch.stmScores[entryIdx] = dataEntry.stmScore;

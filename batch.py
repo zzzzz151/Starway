@@ -5,28 +5,20 @@ import torch
 
 class Batch(ctypes.Structure):
     _fields_ = [
-        ('num_active_features', ctypes.c_uint32),
-        ('active_features_white', ctypes.POINTER(ctypes.c_int16)),
-        ('active_features_black', ctypes.POINTER(ctypes.c_int16)),
+        ('active_features_white', ctypes.POINTER(ctypes.c_int32)),
+        ('active_features_black', ctypes.POINTER(ctypes.c_int32)),
         ('is_white_stm', ctypes.POINTER(ctypes.c_bool)),
         ('stm_scores', ctypes.POINTER(ctypes.c_int16)),
         ('stm_WDLs', ctypes.POINTER(ctypes.c_float))
     ]
 
-    def get_features_tensor(self, is_white_perspective: bool, dtype = torch.bool):
-        features_tensor = torch.zeros(BATCH_SIZE, 768, device=DEVICE, dtype=dtype)
-
+    def get_features_tensor(self, is_white_perspective: bool):
         arr = np.ctypeslib.as_array(
             self.active_features_white if is_white_perspective else self.active_features_black,
-            shape=(self.num_active_features, 2)
+            shape=(BATCH_SIZE, 32)
         )
 
-        indices_tensor = torch.from_numpy(arr).int()
-        value = True if dtype == torch.bool else 1
-
-        features_tensor[indices_tensor[:, 0], indices_tensor[:, 1]] = value
-
-        return features_tensor
+        return torch.from_numpy(arr).to(DEVICE, dtype=torch.int32)
 
     @staticmethod
     def to_tensor(x):

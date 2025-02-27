@@ -60,10 +60,9 @@ struct Batch
 {
 public:
 
-    u32 numActiveFeatures = 0;
-
-    i16* activeFeaturesWhite;
-    i16* activeFeaturesBlack;
+    // Indices of active features (a position has max 32 active features)
+    i32* activeFeaturesWhite;
+    i32* activeFeaturesBlack;
 
     bool* isWhiteStm;
 
@@ -72,10 +71,9 @@ public:
 
     constexpr Batch(const std::size_t batchSize)
     {
-        // Array size is * 2 because the features are (positionIndex, feature)
-        // AKA a (numActiveFeatures, 2) matrix
-        activeFeaturesWhite = new i16[batchSize * 32 * 2];
-        activeFeaturesBlack = new i16[batchSize * 32 * 2];
+        // Indices of active features (a position has max 32 active features)
+        activeFeaturesWhite = new i32[batchSize * 32];
+        activeFeaturesBlack = new i32[batchSize * 32];
 
         isWhiteStm = new bool[batchSize];
 

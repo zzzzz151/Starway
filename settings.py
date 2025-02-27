@@ -3,8 +3,21 @@ import torch
 
 DEVICE = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
-NET_NAME = "net768x2_hm"
+NET_NAME = "net768x2x5_hm"
 CHECKPOINT_TO_LOAD = None # Set to a .pt file to resume training, else set to None
+
+INPUT_BUCKETS_MAP = [
+#   A  B  C  D  E  F  G  H
+    1, 1, 1, 1, 2, 2, 2, 2, # 1
+    1, 1, 1, 1, 2, 2, 2, 2, # 2
+    1, 1, 1, 1, 2, 2, 2, 2, # 3
+    1, 1, 1, 1, 2, 2, 2, 2, # 4
+    3, 3, 3, 3, 4, 4, 4, 4, # 5
+    3, 3, 3, 3, 4, 4, 4, 4, # 6
+    3, 3, 3, 3, 4, 4, 4, 4, # 7
+    3, 3, 3, 3, 4, 4, 4, 4  # 8
+#   A  B  C  D  E  F  G  H
+]
 
 HIDDEN_SIZE = 1024 # The final hidden layer is twice as big
 
@@ -32,6 +45,8 @@ QA, QB = 256, 64
 
 assert NET_NAME != ""
 if CHECKPOINT_TO_LOAD: assert os.path.exists(CHECKPOINT_TO_LOAD)
+assert len(INPUT_BUCKETS_MAP) == 64
+assert min(INPUT_BUCKETS_MAP) == 1
 assert HIDDEN_SIZE > 0
 assert START_SUPERBATCH > 0
 if not CHECKPOINT_TO_LOAD: assert START_SUPERBATCH == 1

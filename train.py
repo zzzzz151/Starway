@@ -12,12 +12,13 @@ import os
 torch.set_float32_matmul_precision('medium')
 
 if __name__ == "__main__":
+    NUM_INPUT_BUCKETS = max(INPUT_BUCKETS_MAP) + 1
     SUPERBATCHES = END_SUPERBATCH - START_SUPERBATCH + 1
     NUM_DATA_ENTRIES = os.path.getsize(DATA_FILE_PATH) / 32
 
     print("Device:", "CPU" if DEVICE == torch.device("cpu") else torch.cuda.get_device_name(0))
     print("Net name:", NET_NAME)
-    print("Net arch: (768x2 -> {})x2 -> 1, vertical axis mirroring".format(HIDDEN_SIZE))
+    print("Net arch: (768x2x{} -> {})x2 -> 1, vertical axis mirroring".format(NUM_INPUT_BUCKETS, HIDDEN_SIZE))
     print("Checkpoint to load:", CHECKPOINT_TO_LOAD)
     print("Superbatches: {} to {} ({} total)".format(START_SUPERBATCH, END_SUPERBATCH, SUPERBATCHES))
     print("Save interval: every {} superbatches".format(SAVE_INTERVAL))
@@ -39,14 +40,17 @@ if __name__ == "__main__":
 
     # Define dataloader functions
     dataloader.init.restype = None # void
-    dataloader.init.argtypes = [ctypes.c_char_p, ctypes.c_int32, ctypes.c_int32]
+    dataloader.init.argtypes = [
+        ctypes.c_char_p, ctypes.c_int32, ctypes.c_int32, ctypes.POINTER(ctypes.c_size_t)
+    ]
     dataloader.nextBatch.restype = ctypes.POINTER(Batch)
 
     # Init dataloader
     dataloader.init(
         ctypes.c_char_p(DATA_FILE_PATH.encode('utf-8')),
         BATCH_SIZE,
-        THREADS
+        THREADS,
+        (ctypes.c_size_t * len(INPUT_BUCKETS_MAP))(*INPUT_BUCKETS_MAP)
     )
 
     net = PerspectiveNet768x2().to(DEVICE)
@@ -100,8 +104,8 @@ if __name__ == "__main__":
 
             with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
                 prediction = net.forward(
-                    batch.get_features_tensor(True, torch.bfloat16),
-                    batch.get_features_tensor(False, torch.bfloat16),
+                    batch.get_features_tensor(True),
+                    batch.get_features_tensor(False),
                     Batch.to_tensor(batch.is_white_stm)
                 )
 

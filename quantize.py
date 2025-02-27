@@ -46,8 +46,8 @@ if __name__ == "__main__":
             out_file.write(struct.pack('<' + letter * len(flattened), *flattened))
 
         # Write features weights
-        write_bin(net.ft_white.weight.T, np.int16)
-        write_bin(net.ft_black.weight.T, np.int16)
+        write_bin(net.ft_white.weight, np.int16)
+        write_bin(net.ft_black.weight, np.int16)
 
         # Write hidden biases
         write_bin(net.ft_white.bias, np.int16)
@@ -84,7 +84,19 @@ if __name__ == "__main__":
         "r5r1/3k4/ppp5/3p4/8/1B6/1B3KN1/6R1 w - - 0 1",
         "r5r1/3k4/ppp5/3p4/8/1B6/1B3KN1/6R1 b - - 0 1",
         "r5r1/8/ppp5/3p4/8/1B6/1B4Nk/1K4R1 w - - 0 1",
-        "r5r1/8/ppp5/3p4/8/1B6/1B4Nk/1K4R1 b - - 0 1"
+        "r5r1/8/ppp5/3p4/8/1B6/1B4Nk/1K4R1 b - - 0 1",
+        "b2qk3/6pp/8/8/8/5Q1N/R7/4K3 w - - 0 1",
+        "b2qk3/6pp/8/8/8/5Q1N/R7/4K3 b - - 0 1",
+        "b3k3/6pp/8/8/8/1Q5N/Rq6/4K3 w - - 0 1",
+        "b3k3/6pp/8/8/8/1Q5N/Rq6/4K3 b - - 0 1",
+        "b3k3/6pp/5Q2/8/8/7N/R7/4K3 w - - 0 1",
+        "b3k3/6pp/5Q2/8/8/7N/R7/4K3 b - - 0 1",
+        "b3k3/6pp/8/8/3q4/7N/R7/4K3 w - - 0 1",
+        "b3k3/6pp/8/8/3q4/7N/R7/4K3 b - - 0 1",
+        "b3k3/5qpp/8/8/8/2Q4N/R1Q5/4K3 w - - 0 1",
+        "b3k3/5qpp/8/8/8/2Q4N/R1Q5/4K3 b - - 0 1",
+        "b3k1q1/6pp/8/8/8/1q5N/R7/4K3 w - - 0 1",
+        "b3k1q1/6pp/8/8/8/1q5N/R7/4K3 b - - 0 1"
     ]
 
     for fen in FENS:
