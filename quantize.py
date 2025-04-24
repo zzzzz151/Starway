@@ -8,7 +8,8 @@ import struct
 if __name__ == "__main__":
     print("Device:", "CPU" if DEVICE == torch.device("cpu") else torch.cuda.get_device_name(0))
     print("Net name:", NET_NAME)
-    print("Net arch: (768x2 -> {})x2 -> 1, vertical axis mirroring".format(HIDDEN_SIZE))
+    print("Net arch: (768x2x{} -> {})x2 -> 1, vertical axis mirroring"
+        .format(NUM_INPUT_BUCKETS, HIDDEN_SIZE))
     print("Checkpoint to load:", CHECKPOINT_TO_LOAD)
     print("Scale:", SCALE)
     print("Quantization: {}, {}".format(QA, QB))

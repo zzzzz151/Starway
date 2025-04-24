@@ -38,21 +38,23 @@ struct DataEntry
 {
 public:
 
-    bool isWhiteStm;
+    // Lsb is set if black to move
+    // Highest 7 bits are halfmove clock
+    u8 stmAndHalfmoveClock;
 
     u64 occupied;
 
     // 4 bits per piece for a max of 32 pieces
-    // lsb of the 4 bits is piece color, other 3 bits is piece type
+    // Lsb is set if piece color is black, other 3 bits is piece type (0-5 including both)
     u128 pieces;
 
-    u8 whiteKingSquare, blackKingSquare, whiteQueenSquare, blackQueenSquare;
+    // Kings and queens squares (64 if 0 colored queens, 65 if >1 colored queens)
+    u8 wkSq, bkSq, wqSq, bqSq;
 
     i16 stmScore;
+    i8 stmResult; // -1, 0, 1
 
-    i8 stmWdl; // -1, 0, 1 for loss, draw, win, respectively
-
-} __attribute__((packed)); // struct DataEntry
+} __attribute__((packed));
 
 static_assert(sizeof(DataEntry) == 32); // 32 bytes
 

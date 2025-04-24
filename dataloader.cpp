@@ -15,6 +15,7 @@ std::string DATA_FILE_PATH = "";
 size_t DATA_FILE_BYTES = 0;
 size_t BATCH_SIZE = 0;
 size_t NUM_THREADS = 0;
+size_t NUM_INPUT_BUCKETS = 0;
 std::array<size_t, 64> INPUT_BUCKETS_MAP = { };
 
 std::vector<Batch> gBatches = { }; // NUM_THREADS batches
@@ -25,6 +26,7 @@ extern "C" API void init(
     const char* dataFilePath,
     const i32 batchSize,
     const i32 numThreads,
+    const size_t numInputBuckets,
     const std::array<size_t, 64>& inputBucketsMap)
 {
     DATA_FILE_PATH = static_cast<std::string>(dataFilePath);
@@ -69,6 +71,7 @@ extern "C" API void init(
         exit(EXIT_FAILURE);
     }
 
+    NUM_INPUT_BUCKETS = numInputBuckets;
     INPUT_BUCKETS_MAP = inputBucketsMap;
 
     for (size_t i = 0; i < NUM_THREADS; i++)
@@ -96,19 +99,21 @@ inline void loadBatch(const size_t threadId)
         const auto pieceColor,
         const auto pieceType,
         auto square,
-        const auto kingSquare,
-        auto enemyQueenSquare) constexpr -> size_t
+        const auto kSq,
+        auto enemyQSq) constexpr -> size_t
     {
-        const bool flipVAxis = static_cast<size_t>(kingSquare) % 8 > 3;
+        const bool flipVAxis = static_cast<size_t>(kSq) % 8 > 3;
 
-        if (flipVAxis) {
+        if (flipVAxis)
+        {
             square ^= 7;
-            enemyQueenSquare ^= 7;
+            if (enemyQSq < 64) enemyQSq ^= 7;
         }
 
-        const size_t inputBucket = enemyQueenSquare >= INPUT_BUCKETS_MAP.size()
-                                 ? 0
-                                 : INPUT_BUCKETS_MAP[static_cast<size_t>(enemyQueenSquare)];
+        const size_t inputBucket
+            = enemyQSq == 64 ? 0 // 0 enemy queens
+            : enemyQSq == 65 ? NUM_INPUT_BUCKETS - 1 // multiple enemy queens
+            : INPUT_BUCKETS_MAP[static_cast<size_t>(enemyQSq)]; // exactly 1 enemy queen
 
         return inputBucket * 768
              + static_cast<size_t>(pieceColor) * 384
@@ -128,7 +133,7 @@ inline void loadBatch(const size_t threadId)
     {
         dataFile.read(reinterpret_cast<char*>(&dataEntry), sizeof(DataEntry));
 
-        batch.isWhiteStm[entryIdx] = dataEntry.isWhiteStm;
+        batch.isWhiteStm[entryIdx] = (dataEntry.stmAndHalfmoveClock & 0b1) == 0;
 
         size_t piecesProcessed = 0;
 
@@ -141,11 +146,11 @@ inline void loadBatch(const size_t threadId)
             const size_t idx = entryIdx * 32 + piecesProcessed;
 
             batch.activeFeaturesWhite[idx] = static_cast<i32>(featureIdx(
-                pieceColor, pieceType, square, dataEntry.whiteKingSquare, dataEntry.blackQueenSquare
+                pieceColor, pieceType, square, dataEntry.wkSq, dataEntry.bqSq
             ));
 
             batch.activeFeaturesBlack[idx] = static_cast<i32>(featureIdx(
-                pieceColor, pieceType, square, dataEntry.blackKingSquare, dataEntry.whiteQueenSquare
+                pieceColor, pieceType, square, dataEntry.bkSq, dataEntry.wqSq
             ));
 
             dataEntry.pieces >>= 4;
@@ -153,7 +158,7 @@ inline void loadBatch(const size_t threadId)
         }
 
         batch.stmScores[entryIdx] = dataEntry.stmScore;
-        batch.stmWDLs[entryIdx] = static_cast<float>(dataEntry.stmWdl + 1) / 2.0f;
+        batch.stmWDLs[entryIdx] = static_cast<float>(dataEntry.stmResult + 1) / 2.0f;
     }
 }
 

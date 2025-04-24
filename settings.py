@@ -3,8 +3,10 @@ import torch
 
 DEVICE = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
-NET_NAME = "net768x2x5_hm"
-CHECKPOINT_TO_LOAD = None # Set to a .pt file to resume training, else set to None
+NET_NAME = "net768x2x6_hm_1024x2"
+
+# Set to a .pt file to resume training, else set to None
+CHECKPOINT_TO_LOAD = None
 
 INPUT_BUCKETS_MAP = [
 #   A  B  C  D  E  F  G  H
@@ -19,12 +21,14 @@ INPUT_BUCKETS_MAP = [
 #   A  B  C  D  E  F  G  H
 ]
 
+NUM_INPUT_BUCKETS = max(INPUT_BUCKETS_MAP) + 2
+
 HIDDEN_SIZE = 1024 # The final hidden layer is twice as big
 
 # 1 superbatch = 100 million positions
 # Total superbatches = END_SUPERBATCH - START_SUPERBATCH + 1
 START_SUPERBATCH = 1
-END_SUPERBATCH = 500
+END_SUPERBATCH = 600
 
 SAVE_INTERVAL = 100 # Save net every SAVE_INTERVAL superbatches
 
@@ -46,7 +50,7 @@ QA, QB = 256, 64
 assert NET_NAME != ""
 if CHECKPOINT_TO_LOAD: assert os.path.exists(CHECKPOINT_TO_LOAD)
 assert len(INPUT_BUCKETS_MAP) == 64
-assert min(INPUT_BUCKETS_MAP) == 1
+assert NUM_INPUT_BUCKETS > 0
 assert HIDDEN_SIZE > 0
 assert START_SUPERBATCH > 0
 if not CHECKPOINT_TO_LOAD: assert START_SUPERBATCH == 1

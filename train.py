@@ -12,21 +12,23 @@ import os
 torch.set_float32_matmul_precision('medium')
 
 if __name__ == "__main__":
-    NUM_INPUT_BUCKETS = max(INPUT_BUCKETS_MAP) + 1
     SUPERBATCHES = END_SUPERBATCH - START_SUPERBATCH + 1
     NUM_DATA_ENTRIES = os.path.getsize(DATA_FILE_PATH) / 32
 
     print("Device:", "CPU" if DEVICE == torch.device("cpu") else torch.cuda.get_device_name(0))
     print("Net name:", NET_NAME)
-    print("Net arch: (768x2x{} -> {})x2 -> 1, vertical axis mirroring".format(NUM_INPUT_BUCKETS, HIDDEN_SIZE))
+    print("Net arch: (768x2x{} -> {})x2 -> 1, vertical axis mirroring"
+        .format(NUM_INPUT_BUCKETS, HIDDEN_SIZE))
     print("Checkpoint to load:", CHECKPOINT_TO_LOAD)
-    print("Superbatches: {} to {} ({} total)".format(START_SUPERBATCH, END_SUPERBATCH, SUPERBATCHES))
+    print("Superbatches: {} to {} ({} total)"
+        .format(START_SUPERBATCH, END_SUPERBATCH, SUPERBATCHES))
     print("Save interval: every {} superbatches".format(SAVE_INTERVAL))
     print("Data file:", DATA_FILE_PATH)
     print("Data entries:", NUM_DATA_ENTRIES)
     print("Batch size:", BATCH_SIZE)
     print("Threads:", THREADS)
-    print("LR: start {} multiply by {} every {} superbatches".format(LR, LR_MULTIPLIER, LR_DROP_INTERVAL))
+    print("LR: start {} multiply by {} every {} superbatches"
+        .format(LR, LR_MULTIPLIER, LR_DROP_INTERVAL))
     print("Scale:", SCALE)
     print("WDL:", WDL)
     print("Weights/biases clipping: [{}, {}]".format(-MAX_WEIGHT_BIAS, MAX_WEIGHT_BIAS))
@@ -38,18 +40,25 @@ if __name__ == "__main__":
     assert dll_exists or so_exists
     dataloader = ctypes.CDLL("./dataloader.dll" if dll_exists else "./dataloader.so")
 
-    # Define dataloader functions
+    # Define dataloader's functions return types
     dataloader.init.restype = None # void
-    dataloader.init.argtypes = [
-        ctypes.c_char_p, ctypes.c_int32, ctypes.c_int32, ctypes.POINTER(ctypes.c_size_t)
-    ]
     dataloader.nextBatch.restype = ctypes.POINTER(Batch)
+
+    # Define dataloader's init() arguments types
+    dataloader.init.argtypes = [
+        ctypes.c_char_p,
+        ctypes.c_int32,
+        ctypes.c_int32,
+        ctypes.c_size_t,
+        ctypes.POINTER(ctypes.c_size_t)
+    ]
 
     # Init dataloader
     dataloader.init(
         ctypes.c_char_p(DATA_FILE_PATH.encode('utf-8')),
         BATCH_SIZE,
         THREADS,
+        NUM_INPUT_BUCKETS,
         (ctypes.c_size_t * len(INPUT_BUCKETS_MAP))(*INPUT_BUCKETS_MAP)
     )
 
