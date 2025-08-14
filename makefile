@@ -9,4 +9,4 @@ ifneq ($(OS), Windows_NT)
 endif
 
 all:
-	$(CXX) $(CXXFLAGS) dataloader.cpp -o dataloader$(SUFFIX)
+	$(CXX) $(CXXFLAGS) dataloader/dataloader.cpp -o dataloader$(SUFFIX)
