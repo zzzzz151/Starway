@@ -1,16 +1,17 @@
-from settings import *
 import torch
+from settings import *
+from feature_transformer import FeatureTransformerSlice
 
 class NetValuePolicy(torch.nn.Module):
     def __init__(self):
         super().__init__()
 
         # Features transformers (input layer -> hidden layer)
-        self.ft = torch.nn.Linear(768, HIDDEN_SIZE)
+        self.ft = FeatureTransformerSlice(768 * 2, HIDDEN_SIZE)
 
         # Hidden layer -> output layer
-        self.hidden_to_out_value = torch.nn.Linear(HIDDEN_SIZE * 2, 1)
-        self.hidden_to_out_policy = torch.nn.Linear(HIDDEN_SIZE * 2, 1882)
+        self.hidden_to_out_value = torch.nn.Linear(HIDDEN_SIZE, 1)
+        self.hidden_to_out_policy = torch.nn.Linear(HIDDEN_SIZE, 1882)
 
         # Init random weights and biases
         torch.manual_seed(42)
@@ -40,8 +41,10 @@ class NetValuePolicy(torch.nn.Module):
         # [BATCH_SIZE, HIDDEN_SIZE * 2]
         hidden_layer = torch.cat([hidden_stm, hidden_ntm], dim=dim)
 
-        # SCReLU activation
-        hidden_layer = torch.pow(torch.clamp(hidden_layer, 0, 1), 2)
+        # Activation
+        hidden_layer = torch.clamp(hidden_layer, 0, 1)
+        hidden_layer = hidden_layer.view(hidden_layer.shape[0], HIDDEN_SIZE, 2) # [BATCH_SIZE, HIDDEN_SIZE, 2]
+        hidden_layer = hidden_layer[:, :, 0] * hidden_layer[:, :, 1] # [BATCH_SIZE, HIDDEN_SIZE]
 
         # [BATCH_SIZE, 1882]
         logits = self.hidden_to_out_policy(hidden_layer)

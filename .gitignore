@@ -9,6 +9,8 @@ __pycache__/
 **/*.so
 
 **/*.bin
+!**/moves_map_1880.bin
+
 **/*.binpack
 
 checkpoints/

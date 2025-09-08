@@ -1,6 +1,3 @@
-from settings import *
-from batch import Batch
-from model import NetValuePolicy
 import ctypes
 import numpy as np
 import torch
@@ -8,8 +5,9 @@ import math
 import time
 import sys
 import os
-
-torch.set_float32_matmul_precision('medium')
+from settings import *
+from batch import Batch
+from model import NetValuePolicy
 
 if __name__ == "__main__":
     SUPERBATCHES = END_SUPERBATCH - START_SUPERBATCH + 1
@@ -18,7 +16,7 @@ if __name__ == "__main__":
 
     print("Device:", "CPU" if DEVICE == torch.device("cpu") else torch.cuda.get_device_name(0))
     print("Net name:", NET_NAME)
-    print("Net arch: (768 -> {})x2 -> 1883".format(HIDDEN_SIZE))
+    print("Net arch: (768x2HM -> {})x2 -> 1883".format(HIDDEN_SIZE))
     print("Checkpoint to load:", CHECKPOINT_TO_LOAD)
     print("Superbatches: {} to {} ({} total)"
         .format(START_SUPERBATCH, END_SUPERBATCH, SUPERBATCHES))
@@ -57,8 +55,6 @@ if __name__ == "__main__":
     #optimizer = torch.optim.Adam(net.parameters(), lr=LR)
     optimizer = torch.optim.AdamW(net.parameters(), lr=LR, weight_decay=0.01)
 
-    scaler = torch.cuda.amp.GradScaler()
-
     net = torch.compile(net)
 
     # Load checkpoint if resuming training
@@ -78,8 +74,6 @@ if __name__ == "__main__":
 
         assert(len(optimizer.param_groups) == 1 and "lr" in optimizer.param_groups[0])
         optimizer.param_groups[0]["lr"] = LR
-
-        scaler.load_state_dict(checkpoint["scaler"])
 
     # 1 superbatch = 100M positions
     BATCHES_PER_SUPERBATCH = math.ceil(100_000_000.0 / float(BATCH_SIZE))
@@ -104,58 +98,44 @@ if __name__ == "__main__":
 
             optimizer.zero_grad(set_to_none=True)
 
-            with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                stm_features_tensor = batch.get_2d_tensor(
-                    batch.active_features_stm, batch.num_active_features, 768, torch.bfloat16
-                )
+            pred_value, pred_logits = net.forward(
+                batch.get_features_tensor(batch.active_features_stm),
+                batch.get_features_tensor(batch.active_features_ntm),
+                batch.get_legal_moves_idxs1882_tensor(torch.bool)
+            )
 
-                ntm_features_tensor = batch.get_2d_tensor(
-                    batch.active_features_ntm, batch.num_active_features, 768, torch.bfloat16
-                )
+            assert pred_value.dtype == torch.float32
+            assert pred_logits.dtype == torch.float32
 
-                legal_moves_tensor = batch.get_2d_tensor(
-                    batch.legal_moves_idxs1882, batch.total_legal_moves, 1882, torch.bool
-                )
+            stm_scores = batch.get_tensor(batch.stm_scores, (BATCH_SIZE, 1), torch.float32)
+            stm_WDLs = batch.get_tensor(batch.stm_WDLs, (BATCH_SIZE, 1), torch.float32)
 
-                pred_value, pred_logits = net.forward(
-                    stm_features_tensor, ntm_features_tensor, legal_moves_tensor
-                )
+            assert stm_scores.dtype == torch.float32
+            assert stm_WDLs.dtype == torch.float32
 
-                assert pred_value.dtype == torch.bfloat16
-                assert pred_logits.dtype == torch.bfloat16
+            expected_value = torch.sigmoid(stm_scores / float(SCALE)) * (1.0 - WDL)
+            expected_value += stm_WDLs * WDL
 
-                stm_scores = batch.get_tensor(batch.stm_scores, (BATCH_SIZE, 1), torch.float32)
-                stm_WDLs = batch.get_tensor(batch.stm_WDLs, (BATCH_SIZE, 1), torch.float32)
+            value_abs_diff = torch.abs(torch.sigmoid(pred_value) - expected_value)
 
-                assert stm_scores.dtype == torch.float32
-                assert stm_WDLs.dtype == torch.float32
+            best_move_tensor = batch.get_tensor(
+                batch.best_move_idx1882, (BATCH_SIZE,), torch.long
+            )
 
-                expected_value = torch.sigmoid(stm_scores / float(SCALE)) * (1.0 - WDL)
-                expected_value += stm_WDLs * WDL
+            value_loss = torch.pow(value_abs_diff, 2.5).mean()
+            policy_loss = ce_fn(pred_logits, best_move_tensor)
 
-                value_abs_diff = torch.abs(torch.sigmoid(pred_value) - expected_value)
+            assert value_loss.dtype == torch.float32
+            assert policy_loss.dtype == torch.float32
 
-                best_move_tensor = batch.get_tensor(
-                    batch.best_move_idx1882, (BATCH_SIZE,), torch.long
-                )
-
-                value_loss = torch.pow(value_abs_diff, 2.5).mean()
-                policy_loss = ce_fn(pred_logits, best_move_tensor)
-
-                assert value_loss.dtype == torch.float32
-                assert policy_loss.dtype == torch.float32
-
-                loss = value_loss * VALUE_LOSS_WEIGHT + policy_loss * POLICY_LOSS_WEIGHT
-                assert loss.dtype == torch.float32
+            loss = value_loss * VALUE_LOSS_WEIGHT + policy_loss * POLICY_LOSS_WEIGHT
+            assert loss.dtype == torch.float32
 
             sb_value_loss += value_loss.item()
             sb_policy_loss += policy_loss.item()
 
-            scaled_loss = scaler.scale(loss)
-            scaled_loss.backward()
-
-            scaler.step(optimizer)
-            scaler.update()
+            loss.backward()
+            optimizer.step()
 
             with torch.no_grad():
                 net.ft.weight.clamp_(-FT_MAX_WEIGHT_BIAS, FT_MAX_WEIGHT_BIAS)
@@ -169,8 +149,8 @@ if __name__ == "__main__":
 
                 log_template = "Superbatch {}/{}, " \
                     "batch {}/{}, " \
-                    "sb value loss = {:.4f}*{:.1f} = {:.4f}, " \
-                    "sb policy loss = {:.4f}*{:.1f} = {:.4f}, " \
+                    "sb value loss = {:.4f}*{:.2f} = {:.4f}, " \
+                    "sb policy loss = {:.4f}*{:.2f} = {:.4f}, " \
                     "{} positions/s"
 
                 log = "\r" + log_template.format(
@@ -198,8 +178,7 @@ if __name__ == "__main__":
         if mod == 0 or superbatch_num == END_SUPERBATCH:
             checkpoint = {
                 "model": net.state_dict(),
-                "optimizer": optimizer.state_dict(),
-                "scaler": scaler.state_dict()
+                "optimizer": optimizer.state_dict()
             }
 
             if not os.path.exists("checkpoints"):

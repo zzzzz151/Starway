@@ -1,10 +1,16 @@
 import os
 import torch
 
+torch.backends.fp32_precision = "ieee"
+torch.backends.cuda.matmul.fp32_precision = "ieee"
+torch.backends.cudnn.fp32_precision = "ieee"
+
 DEVICE = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
-NET_NAME = "net_value_policy_128x2"
-CHECKPOINT_TO_LOAD = None # Set to a .pt file to resume training, else set to None
+NET_NAME = "net"
+
+# Set to a .pt file to resume training, else set to None
+CHECKPOINT_TO_LOAD = None
 
 HIDDEN_SIZE = 128 # The final hidden layer is twice as big
 
@@ -13,9 +19,9 @@ HIDDEN_SIZE = 128 # The final hidden layer is twice as big
 START_SUPERBATCH = 1
 END_SUPERBATCH = 600
 
-SAVE_INTERVAL = 60 # Save net every SAVE_INTERVAL superbatches
+SAVE_INTERVAL = 30 # Save net every SAVE_INTERVAL superbatches
 
-DATA_FILE_PATH = "../3B.bin" # .bin data file
+DATA_FILE_PATH = "../3B_shuffled.bin" # .bin data file
 BATCH_SIZE = 16384
 THREADS = 12
 
@@ -27,7 +33,7 @@ LR_MULTIPLIER = 0.99
 SCALE = 400
 WDL = 0.0
 
-VALUE_LOSS_WEIGHT = 0.5
+VALUE_LOSS_WEIGHT = 0.99 # vlw
 
 # To fit in i16: 33 * 5.48 * 181 <= 32767
 FT_MAX_WEIGHT_BIAS = 5.48

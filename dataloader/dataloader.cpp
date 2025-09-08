@@ -106,6 +106,9 @@ inline void loadBatch(const size_t threadId) {
     batch.numActiveFeatures = 0;
     batch.totalLegalMoves = 0;
 
+    std::fill(batch.activeFeaturesStm, batch.activeFeaturesStm + BATCH_SIZE * 32, -1);
+    std::fill(batch.activeFeaturesNtm, batch.activeFeaturesNtm + BATCH_SIZE * 32, -1);
+
     DataEntry dataEntry;
     chess::Board board;
 
@@ -114,23 +117,27 @@ inline void loadBatch(const size_t threadId) {
         board.reset();
 
         std::optional<std::tuple<u8, u8, u8>> pieceData = std::nullopt;
+        size_t piecesSeen = 0;
+
+        const u8 stmXor = dataEntry.stmKingSqOriented() % 8 <= 3 ? 7 : 0;
+        const u8 ntmXor = dataEntry.ntmKingSqOriented() % 8 <= 3 ? 56 ^ 7 : 56;
+
         while ((pieceData = dataEntry.popOrientedPiece()).has_value()) {
             const auto [pieceColor, pieceType, square] = *pieceData;
 
-            const size_t idx = batch.numActiveFeatures * 2;
+            const size_t idx = entryIdx * 32 + piecesSeen;
 
-            batch.activeFeaturesStm[idx] = static_cast<i16>(entryIdx);
-            batch.activeFeaturesNtm[idx] = static_cast<i16>(entryIdx);
-
-            batch.activeFeaturesStm[idx + 1]
-                = static_cast<i16>(pieceColor) * 384
+            batch.activeFeaturesStm[idx]
+                = dataEntry.inCheck() * 768
+                + static_cast<i16>(pieceColor) * 384
                 + static_cast<i16>(pieceType) * 64
-                + static_cast<i16>(square);
+                + static_cast<i16>(square ^ stmXor);
 
-            batch.activeFeaturesNtm[idx + 1]
-                = static_cast<i16>(!pieceColor) * 384
+            batch.activeFeaturesNtm[idx]
+                = dataEntry.inCheck() * 768
+                + static_cast<i16>(!pieceColor) * 384
                 + static_cast<i16>(pieceType) * 64
-                + static_cast<i16>(square ^ 56);
+                + static_cast<i16>(square ^ ntmXor);
 
             batch.numActiveFeatures++;
 
@@ -140,14 +147,15 @@ inline void loadBatch(const size_t threadId) {
             );
 
             board.placePiece(piece, chess::Square(square));
+            piecesSeen++;
         }
 
         batch.stmScores[entryIdx] = dataEntry.stmScore();
         batch.stmWDLs[entryIdx] = dataEntry.stmWdl();
 
         batch.bestMoveIdx1882[entryIdx] = getMoveIdx1882(
-            moveSrc(dataEntry.bestMoveOriented()),
-            moveDst(dataEntry.bestMoveOriented()),
+            moveSrc(dataEntry.bestMoveOriented()) ^ stmXor,
+            moveDst(dataEntry.bestMoveOriented()) ^ stmXor,
             getPieceTypeMoving(dataEntry.bestMoveOriented()),
             getPromotionPieceType(dataEntry.bestMoveOriented())
         );
@@ -182,8 +190,8 @@ inline void loadBatch(const size_t threadId) {
 
         for (const auto& move : moves) {
             const i16 moveIdx1882 = getMoveIdx1882(
-                static_cast<u8>(move.from().index()),
-                static_cast<u8>(move.to().index()),
+                static_cast<u8>(move.from().index()) ^ stmXor,
+                static_cast<u8>(move.to().index()) ^ stmXor,
                 static_cast<u8>(board.at(move.from()).type()),
                 move.typeOf() == chess::Move::PROMOTION ? static_cast<u8>(move.promotionType()) : 6
             );

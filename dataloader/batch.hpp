@@ -23,8 +23,8 @@ public:
     constexpr Batch(const std::size_t batchSize) {
         // Array size is * 2 because the features are (positionIndex, feature)
         // AKA a (numActiveFeatures, 2) matrix
-        activeFeaturesStm = new i16[batchSize * 32 * 2];
-        activeFeaturesNtm = new i16[batchSize * 32 * 2];
+        activeFeaturesStm = new i16[batchSize * 32];
+        activeFeaturesNtm = new i16[batchSize * 32];
 
         stmScores = new i16[batchSize];
         stmWDLs   = new float[batchSize];
