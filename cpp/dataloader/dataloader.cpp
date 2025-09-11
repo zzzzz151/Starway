@@ -18,7 +18,6 @@
 
 // These constants are set in init(), which is called from train.py
 std::string DATA_FILE_PATH = "";
-size_t DATA_FILE_BYTES = 0;
 size_t BATCH_SIZE = 0;
 size_t NUM_THREADS = 0;
 
@@ -48,7 +47,6 @@ extern "C" API void init(const char* dataFilePath, const i32 batchSize, const i3
         exit(EXIT_FAILURE);
     }
 
-    DATA_FILE_BYTES = static_cast<size_t>(dataFile.tellg());
     BATCH_SIZE = static_cast<size_t>(batchSize);
     NUM_THREADS = static_cast<size_t>(numThreads);
 
