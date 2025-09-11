@@ -26,19 +26,27 @@ const std::span<const size_t> BATCH_POSITIONS {
 // clang-format on
 
 constexpr size_t MAX_PIECES = 32;
-constexpr size_t MAX_LEGAL_MOVES = 218;
+constexpr size_t MAX_LEGAL_MOVES = 256;
+constexpr size_t POLICY_OUTPUT_SIZE = 1882;
 
+// A batch of N data entries
 struct Batch {
    public:
+    // Dataloader will initialize all elements to -1 (no piece) then fill these arrays
     i16* activeFeaturesStm;
     i16* activeFeaturesNtm;
 
+    // 1 per data entry
     i16* stmScores;
     float* stmWDLs;
 
+    // legalMovesIdx stores pairs (entryIdx, moveIdx) sequentially
+    // Move index is its index in the output layer
     std::size_t totalLegalMoves;
-    i16* legalMovesIdx;
-    u8* visits;
+    std::size_t* legalMovesIdx;
+
+    // The target logits are just the visits distribution of that position
+    u8* logits;
 
     constexpr Batch(const std::size_t batchSize) {
         this->activeFeaturesStm = new i16[batchSize * MAX_PIECES];
@@ -48,8 +56,9 @@ struct Batch {
         this->stmWDLs = new float[batchSize];
 
         this->totalLegalMoves = 0;
-        this->legalMovesIdx = new i16[batchSize * MAX_LEGAL_MOVES];
-        this->visits = new u8[batchSize * MAX_LEGAL_MOVES];
+        this->legalMovesIdx = new std::size_t[batchSize * MAX_LEGAL_MOVES * 2];
+
+        this->logits = new u8[batchSize * POLICY_OUTPUT_SIZE];
     }
 
 };  // struct Batch

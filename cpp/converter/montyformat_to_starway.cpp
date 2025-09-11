@@ -168,7 +168,8 @@ int main(int argc, char* argv[]) {
             assert(legalMoves.contains(mfBestMove));
 
             // Sort moves in ascending order since that's how visits in montyformat are ordered
-            std::sort(legalMoves.begin(), legalMoves.end(),
+            std::sort(legalMoves.begin(),
+                      legalMoves.end(),
                       [](const MontyformatMove a, const MontyformatMove b) {
                           return a.asU16() < b.asU16();
                       });
@@ -217,7 +218,25 @@ int main(int argc, char* argv[]) {
                                          sizeof(outFileSize));
             }
 
-            dataEntry.writeToFile(outFile);
+            // Write data entry to output file
+
+            outFile.write(reinterpret_cast<const char*>(&dataEntry.miscData),
+                          sizeof(dataEntry.miscData));
+
+            outFile.write(reinterpret_cast<const char*>(&dataEntry.occupied),
+                          sizeof(dataEntry.occupied));
+
+            outFile.write(reinterpret_cast<const char*>(&dataEntry.pieces),
+                          sizeof(dataEntry.pieces));
+
+            outFile.write(reinterpret_cast<const char*>(&dataEntry.stmScore),
+                          sizeof(dataEntry.stmScore));
+
+            // For the 'visits' member field,
+            // we only write the filled MoveAndVisits elements (number of legal moves)
+            outFile.write(reinterpret_cast<const char*>(&dataEntry.visits),
+                          dataEntry.visitsBytesCount());
+
             entriesWritten++;
 
             // Log conversion progress once in a while

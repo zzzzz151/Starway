@@ -9,7 +9,7 @@
 #include "../chess/util.hpp"
 #include "../utils.hpp"
 
-// Masks for StarwayDataEntry.mMiscData
+// Masks for StarwayDataEntry.miscData
 // "x-y" includes both x-th and y-th bits
 enum class Mask : u32 {
     // 1st lowest bit: set if black to move
@@ -51,10 +51,9 @@ struct MoveAndVisits {
 } __attribute__((packed));
 
 struct StarwayDataEntry {
-   private:
-    u32 mMiscData;  // See Mask enum for the encoding
-
    public:
+    u32 miscData;  // See Mask enum for the encoding
+
     u64 occupied;  // Oriented (flipped vertically if black to move)
 
     // 4 bits per oriented piece for a max of 32 oriented pieces
@@ -73,20 +72,20 @@ struct StarwayDataEntry {
     // Get some field from misc data
     constexpr u32 get(const Mask mask) const {
         const u32 maskU32 = static_cast<u32>(mask);
-        return (mMiscData & maskU32) >> std::countr_zero(maskU32);
+        return (this->miscData & maskU32) >> std::countr_zero(maskU32);
     }
 
     // Set some field in misc data
     constexpr void set(const Mask mask, const u32 value) {
         const u32 maskU32 = static_cast<u32>(mask);
         assert(value <= (maskU32 >> std::countr_zero(maskU32)));
-        mMiscData &= ~maskU32;
-        mMiscData |= value << std::countr_zero(maskU32);
+        this->miscData &= ~maskU32;
+        this->miscData |= value << std::countr_zero(maskU32);
     }
 
-    // Calculate and set mMiscData
+    // Calculate and set this->miscData
     constexpr void setMiscData(const Position& pos, const u8 stmWdl, const u8 numMoves) {
-        mMiscData = 0;
+        this->miscData = 0;
 
         assert(stmWdl == 0 || stmWdl == 1 || stmWdl == 2);
         assert(numMoves > 0 && numMoves <= 218);
@@ -140,18 +139,12 @@ struct StarwayDataEntry {
         }
     }
 
-    constexpr void writeToFile(std::ofstream& ofstream) {
-        ofstream.write(reinterpret_cast<const char*>(&mMiscData), sizeof(mMiscData));
-        ofstream.write(reinterpret_cast<const char*>(&this->occupied), sizeof(this->occupied));
-        ofstream.write(reinterpret_cast<const char*>(&this->pieces), sizeof(this->pieces));
-        ofstream.write(reinterpret_cast<const char*>(&this->stmScore), sizeof(this->stmScore));
-
-        // For the visits, we only write the filled MoveAndVisits elements (number of legal moves)
-
+    // How many bytes should be occupied by the filled elements of the visits member field?
+    constexpr std::streamsize visitsBytesCount() const {
         const std::streamsize elemSize = static_cast<std::streamsize>(sizeof(MoveAndVisits));
         const std::streamsize numMoves = get(Mask::NUM_MOVES);
-
-        ofstream.write(reinterpret_cast<const char*>(&this->visits), elemSize * numMoves);
+        assert(numMoves > 0 && numMoves <= 218);
+        return elemSize * numMoves;
     }
 
 } __attribute__((packed));  // struct StarwayDataEntry
