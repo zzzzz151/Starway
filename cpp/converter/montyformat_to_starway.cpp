@@ -14,9 +14,10 @@
 #include "compressed_board.hpp"
 #include "data_entry.hpp"
 
+constexpr size_t BATCH_SIZE = 16384;
 constexpr u16 MIN_FULLMOVE_COUNTER = 9;
 constexpr u8 MAX_HALFMOVE_CLOCK = 89;
-constexpr i32 MAX_SCORE_CP = 8000;
+constexpr i16 MAX_SCORE_CP = 8000;
 
 // https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#score
 constexpr i16 mfScoreToCentipawns(const u16 mfScore) {
@@ -64,6 +65,18 @@ int main(int argc, char* argv[]) {
     std::ofstream outFile(outFileName, std::ios::binary);
     if (!outFile) {
         std::cerr << "Error: Could not open file " << outFileName << std::endl;
+        return 1;
+    }
+
+    // Output file storing the position of each batch in the converted file
+    // according to BATCH_SIZE
+    const std::string batchPositionsFileName = "batch_positions.bin";
+    std::cout << "Batch positions file: " << batchPositionsFileName << std::endl;
+
+    // Open batches file
+    std::ofstream batchPositionsFile(batchPositionsFileName, std::ios::binary);
+    if (!batchPositionsFile) {
+        std::cerr << "Error: Could not open file " << batchPositionsFileName << std::endl;
         return 1;
     }
 
@@ -185,18 +198,26 @@ int main(int argc, char* argv[]) {
             skip |= pos.getHalfMoveClock() > MAX_HALFMOVE_CLOCK;
             skip |= std::abs(dataEntry.stmScore) > MAX_SCORE_CP;
 
-            if (!skip) {
-                dataEntry.writeToFile(outFile);
-                entriesWritten++;
-            } else {
-                entriesSkipped++;
-            }
-
             pos.makeMove(mfBestMove);
             pos.validate();
 
+            if (skip) {
+                entriesSkipped++;
+                continue;
+            }
+
+            if (entriesWritten % BATCH_SIZE == 0) {
+                const size_t outFileSize = static_cast<size_t>(outFile.tellp());
+
+                batchPositionsFile.write(reinterpret_cast<const char*>(&outFileSize),
+                                         sizeof(outFileSize));
+            }
+
+            dataEntry.writeToFile(outFile);
+            entriesWritten++;
+
             // Log conversion progress once in a while
-            if (!skip && entriesWritten % 1'048'576 == 0) {
+            if (entriesWritten % 1'048'576 == 0) {
                 std::cout << "\nCurrently on game #" << gameNum << std::endl;
                 std::cout << "Wrote " << entriesWritten << " data entries total" << std::endl;
                 std::cout << "Skipped " << entriesSkipped << " data entries total" << std::endl;
