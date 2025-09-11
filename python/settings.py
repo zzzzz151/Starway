@@ -12,18 +12,20 @@ NET_NAME = "net"
 # Set to a .pt file to resume training, else set to None
 CHECKPOINT_TO_LOAD = None
 
+INPUT_SIZE = 768 * 2
 HIDDEN_SIZE = 128 # The final hidden layer is twice as big
+POLICY_OUTPUT_SIZE = 1882
 
 # 1 superbatch = 100 million positions
 # Total superbatches = END_SUPERBATCH - START_SUPERBATCH + 1
 START_SUPERBATCH = 1
 END_SUPERBATCH = 600
 
-SAVE_INTERVAL = 30 # Save net every SAVE_INTERVAL superbatches
+SAVE_INTERVAL = 1 # Save net every SAVE_INTERVAL superbatches
 
-DATA_FILE_PATH = "../3B_shuffled.bin" # .bin data file
+DATA_FILE_PATH = "converted.bin" # .bin data file
 BATCH_SIZE = 16384
-THREADS = 12
+THREADS = 1
 
 # Learning rate schedule
 LR = 0.001 * (0.99**(START_SUPERBATCH - 1))
@@ -31,7 +33,7 @@ LR_DROP_INTERVAL = 1
 LR_MULTIPLIER = 0.99
 
 SCALE = 400
-WDL = 0.0
+WDL_WEIGHT = 0.0
 
 VALUE_LOSS_WEIGHT = 0.99 # vlw
 
@@ -42,6 +44,7 @@ FT_Q = 181
 assert NET_NAME != ""
 if CHECKPOINT_TO_LOAD: assert os.path.exists(CHECKPOINT_TO_LOAD)
 assert HIDDEN_SIZE > 0
+assert POLICY_OUTPUT_SIZE > 0
 assert START_SUPERBATCH > 0
 if not CHECKPOINT_TO_LOAD: assert START_SUPERBATCH == 1
 assert END_SUPERBATCH > 0
@@ -52,7 +55,7 @@ assert BATCH_SIZE > 0
 assert THREADS > 0
 assert LR > 0.0 and LR_DROP_INTERVAL > 0 and LR_MULTIPLIER > 0.0
 assert SCALE > 0
-assert WDL >= 0.0 and WDL <= 1.0
+assert WDL_WEIGHT >= 0.0 and WDL_WEIGHT <= 1.0
 assert VALUE_LOSS_WEIGHT > 0.0 and VALUE_LOSS_WEIGHT < 1.0
 assert FT_MAX_WEIGHT_BIAS > 0.0
 assert FT_Q > 0

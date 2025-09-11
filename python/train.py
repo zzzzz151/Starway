@@ -1,3 +1,6 @@
+from settings import *
+from batch import Batch
+from model import NetValuePolicy
 import ctypes
 import numpy as np
 import torch
@@ -5,31 +8,33 @@ import math
 import time
 import sys
 import os
-from settings import *
-from batch import Batch
-from model import NetValuePolicy
+
+SUPERBATCHES = END_SUPERBATCH - START_SUPERBATCH + 1
+BATCHES_PER_SUPERBATCH = math.ceil(100_000_000.0 / float(BATCH_SIZE))
+SCORE_WEIGHT = 1.0 - WDL_WEIGHT
+POLICY_LOSS_WEIGHT = 1.0 - VALUE_LOSS_WEIGHT
 
 if __name__ == "__main__":
-    SUPERBATCHES = END_SUPERBATCH - START_SUPERBATCH + 1
-    NUM_DATA_ENTRIES = os.path.getsize(DATA_FILE_PATH) / 32
-    POLICY_LOSS_WEIGHT = 1.0 - VALUE_LOSS_WEIGHT
+    net = NetValuePolicy().to(DEVICE)
+    net.print_info()
 
     print("Device:", "CPU" if DEVICE == torch.device("cpu") else torch.cuda.get_device_name(0))
-    print("Net name:", NET_NAME)
-    print("Net arch: (768x2HM -> {})x2 -> 1883".format(HIDDEN_SIZE))
     print("Checkpoint to load:", CHECKPOINT_TO_LOAD)
+
     print("Superbatches: {} to {} ({} total)"
         .format(START_SUPERBATCH, END_SUPERBATCH, SUPERBATCHES))
+
     print("Save interval: every {} superbatches".format(SAVE_INTERVAL))
     print("Data file:", DATA_FILE_PATH)
-    print("Data entries:", NUM_DATA_ENTRIES)
     print("Batch size:", BATCH_SIZE)
-    print("Threads:", THREADS)
+    print("Dataloader threads:", THREADS)
+
     print("LR: start {} multiply by {} every {} superbatches"
         .format(LR, LR_MULTIPLIER, LR_DROP_INTERVAL))
-    print("Scale:", SCALE)
-    print("WDL:", WDL)
-    print("FT weights/biases clipping: [{}, {}]".format(-FT_MAX_WEIGHT_BIAS, FT_MAX_WEIGHT_BIAS))
+
+    print("Value scale:", SCALE)
+    print("WDL weight for value head:", WDL_WEIGHT)
+    print("FT params clipping: [{}, {}]".format(-FT_MAX_WEIGHT_BIAS, FT_MAX_WEIGHT_BIAS))
     print()
 
     # Launch dataloader
@@ -50,14 +55,15 @@ if __name__ == "__main__":
         THREADS
     )
 
-    exit(1)
+    net = torch.compile(net)
 
-    net = NetValuePolicy().to(DEVICE)
-
-    #optimizer = torch.optim.Adam(net.parameters(), lr=LR)
     optimizer = torch.optim.AdamW(net.parameters(), lr=LR, weight_decay=0.01)
 
-    net = torch.compile(net)
+    lr_scheduler = torch.optim.lr_scheduler.StepLR(
+        optimizer,
+        step_size=LR_DROP_INTERVAL,
+        gamma=LR_MULTIPLIER
+    )
 
     # Load checkpoint if resuming training
     if CHECKPOINT_TO_LOAD:
@@ -71,14 +77,8 @@ if __name__ == "__main__":
         )
 
         net.load_state_dict(checkpoint["model"])
-
         optimizer.load_state_dict(checkpoint["optimizer"])
-
-        assert(len(optimizer.param_groups) == 1 and "lr" in optimizer.param_groups[0])
-        optimizer.param_groups[0]["lr"] = LR
-
-    # 1 superbatch = 100M positions
-    BATCHES_PER_SUPERBATCH = math.ceil(100_000_000.0 / float(BATCH_SIZE))
+        lr_scheduler.load_state_dict(checkpoint["lr_scheduler"])
 
     ce_fn = torch.nn.CrossEntropyLoss()
 
@@ -87,51 +87,34 @@ if __name__ == "__main__":
         sb_value_loss = 0.0
         sb_policy_loss = 0.0
 
-        # Drop learning rate
-        should_drop_lr = (superbatch_num - START_SUPERBATCH) % LR_DROP_INTERVAL == 0
-        if superbatch_num > START_SUPERBATCH and should_drop_lr:
-            LR *= LR_MULTIPLIER
-            assert(len(optimizer.param_groups) == 1 and "lr" in optimizer.param_groups[0])
-            optimizer.param_groups[0]["lr"] = LR
-            print("LR dropped to {}".format(LR))
+        if superbatch_num > 1:
+            lr_scheduler.step()
+
+        for param_group in optimizer.param_groups:
+            print("LR for superbatch #{}:".format(superbatch_num), round(param_group['lr'], 5))
 
         for batch_num in range(1, BATCHES_PER_SUPERBATCH + 1):
             batch = dataloader.nextBatch().contents
 
             optimizer.zero_grad(set_to_none=True)
 
+            target_logits = batch.get_target_logits_tensor()
+
             pred_value, pred_logits = net.forward(
-                batch.get_features_tensor(batch.active_features_stm),
-                batch.get_features_tensor(batch.active_features_ntm),
-                batch.get_legal_moves_idxs1882_tensor(torch.bool)
+                batch.get_features_tensor(True),
+                batch.get_features_tensor(False),
+                target_logits
             )
 
-            assert pred_value.dtype == torch.float32
-            assert pred_logits.dtype == torch.float32
-
-            stm_scores = batch.get_tensor(batch.stm_scores, (BATCH_SIZE, 1), torch.float32)
-            stm_WDLs = batch.get_tensor(batch.stm_WDLs, (BATCH_SIZE, 1), torch.float32)
-
-            assert stm_scores.dtype == torch.float32
-            assert stm_WDLs.dtype == torch.float32
-
-            expected_value = torch.sigmoid(stm_scores / float(SCALE)) * (1.0 - WDL)
-            expected_value += stm_WDLs * WDL
+            expected_value = torch.sigmoid(batch.get_scores_tensor() / float(SCALE)) * SCORE_WEIGHT
+            expected_value += batch.get_wdl_tensor() * WDL_WEIGHT
 
             value_abs_diff = torch.abs(torch.sigmoid(pred_value) - expected_value)
 
-            best_move_tensor = batch.get_tensor(
-                batch.best_move_idx1882, (BATCH_SIZE,), torch.long
-            )
-
             value_loss = torch.pow(value_abs_diff, 2.5).mean()
-            policy_loss = ce_fn(pred_logits, best_move_tensor)
-
-            assert value_loss.dtype == torch.float32
-            assert policy_loss.dtype == torch.float32
+            policy_loss = ce_fn(pred_logits, target_logits)
 
             loss = value_loss * VALUE_LOSS_WEIGHT + policy_loss * POLICY_LOSS_WEIGHT
-            assert loss.dtype == torch.float32
 
             sb_value_loss += value_loss.item()
             sb_policy_loss += policy_loss.item()
@@ -180,7 +163,8 @@ if __name__ == "__main__":
         if mod == 0 or superbatch_num == END_SUPERBATCH:
             checkpoint = {
                 "model": net.state_dict(),
-                "optimizer": optimizer.state_dict()
+                "optimizer": optimizer.state_dict(),
+                "lr_scheduler": lr_scheduler.state_dict()
             }
 
             if not os.path.exists("checkpoints"):

@@ -25,40 +25,34 @@ const std::span<const size_t> BATCH_POSITIONS {
 
 // clang-format on
 
-constexpr size_t MAX_PIECES = 32;
-constexpr size_t MAX_LEGAL_MOVES = 256;
+constexpr size_t MAX_PIECES_PER_POS = 32;
 constexpr size_t POLICY_OUTPUT_SIZE = 1882;
 
-// A batch of N data entries
+// A batch of N data entries (1 data entry = 1 position)
 struct Batch {
    public:
+    // [entryIdx][MAX_PIECES_PER_POS] arrays
     // Dataloader will initialize all elements to -1 (no piece) then fill these arrays
     i16* activeFeaturesStm;
     i16* activeFeaturesNtm;
 
-    // 1 per data entry
+    // [entryIdx] arrays
     i16* stmScores;
     float* stmWDLs;
 
-    // legalMovesIdx stores pairs (entryIdx, moveIdx) sequentially
-    // Move index is its index in the output layer
-    std::size_t totalLegalMoves;
-    std::size_t* legalMovesIdx;
-
-    // The target logits are just the visits distribution of that position
-    u8* logits;
+    // [entryIdx][moveIdx] array, where moveIdx comes from move_mapping.hpp
+    // Illegal moves are set to a large negative number
+    // Legal logits are set to the visit distribution of that data entry
+    i16* logits;
 
     constexpr Batch(const std::size_t batchSize) {
-        this->activeFeaturesStm = new i16[batchSize * MAX_PIECES];
-        this->activeFeaturesNtm = new i16[batchSize * MAX_PIECES];
+        this->activeFeaturesStm = new i16[batchSize * MAX_PIECES_PER_POS];
+        this->activeFeaturesNtm = new i16[batchSize * MAX_PIECES_PER_POS];
 
         this->stmScores = new i16[batchSize];
         this->stmWDLs = new float[batchSize];
 
-        this->totalLegalMoves = 0;
-        this->legalMovesIdx = new std::size_t[batchSize * MAX_LEGAL_MOVES * 2];
-
-        this->logits = new u8[batchSize * POLICY_OUTPUT_SIZE];
+        this->logits = new i16[batchSize * POLICY_OUTPUT_SIZE];
     }
 
 };  // struct Batch

@@ -67,19 +67,18 @@ constexpr void loadBatch(const size_t threadId) {
     size_t idx = (gTotalBatchesYielded + threadId) % BATCH_POSITIONS.size();
     dataFile.seekg(static_cast<i64>(BATCH_POSITIONS[idx]), std::ios::beg);
 
-    // Fill the batch gBatches[threadId]
-
+    // Batch to fill
     Batch& batch = gBatches[threadId];
-    batch.totalLegalMoves = 0;
 
     // Set all features to -1 which indicates no piece
-    std::fill(batch.activeFeaturesStm, batch.activeFeaturesStm + BATCH_SIZE * MAX_PIECES, -1);
-    std::fill(batch.activeFeaturesNtm, batch.activeFeaturesNtm + BATCH_SIZE * MAX_PIECES, -1);
+    std::fill(
+        batch.activeFeaturesStm, batch.activeFeaturesStm + BATCH_SIZE * MAX_PIECES_PER_POS, -1);
 
-    batch.totalLegalMoves = 0;
+    std::fill(
+        batch.activeFeaturesNtm, batch.activeFeaturesNtm + BATCH_SIZE * MAX_PIECES_PER_POS, -1);
 
-    // Zero all target logits
-    std::memset(batch.logits, 0, sizeof(u8) * BATCH_SIZE * POLICY_OUTPUT_SIZE);
+    // Initially, assume all logits in the batch are illegal and set them to large negative number
+    std::fill(batch.logits, batch.logits + BATCH_SIZE * POLICY_OUTPUT_SIZE, -10'000);
 
     StarwayDataEntry dataEntry;
 
@@ -115,7 +114,7 @@ constexpr void loadBatch(const size_t threadId) {
             assert(pieceType <= static_cast<u8>(PieceType::King));
 
             // Index of this feature in the batch's array
-            idx = entryIdx * MAX_PIECES + piecesSeen;
+            idx = entryIdx * MAX_PIECES_PER_POS + piecesSeen;
 
             // clang-format off
 
@@ -147,16 +146,12 @@ constexpr void loadBatch(const size_t threadId) {
         batch.stmScores[entryIdx] = dataEntry.stmScore;
         batch.stmWDLs[entryIdx] = static_cast<float>(stmWdl) / 2.0f;
 
-        // In the batch, set the legal moves indexes (output layer)
-        // and set the target logits which is just the visits distribution of this position
+        // In the batch, set the logits for this data entry (position)
+        // Illegal moves stay at a large negative number
+        // while legal logits are set to their visits
         for (size_t i = 0; i < static_cast<size_t>(dataEntry.get(Mask::NUM_MOVES)); i++) {
             const auto [moveU16, visitsU8] = dataEntry.visits[i];
             const size_t moveIdx = mapMoveIdx(MontyformatMove(moveU16));
-
-            // legalMovesIdx stores pairs (entryIdx, moveIdx) sequentially
-            batch.legalMovesIdx[batch.totalLegalMoves * 2] = entryIdx;
-            batch.legalMovesIdx[batch.totalLegalMoves * 2 + 1] = moveIdx;
-            batch.totalLegalMoves++;
 
             // Careful to not overwrite the logits of other data entries!
             batch.logits[entryIdx * POLICY_OUTPUT_SIZE + moveIdx] = visitsU8;
