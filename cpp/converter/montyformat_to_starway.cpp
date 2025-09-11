@@ -14,7 +14,7 @@
 #include "compressed_board.hpp"
 #include "data_entry.hpp"
 
-constexpr size_t BATCH_SIZE = 16384;
+constexpr size_t BATCH_SIZE = 16384;  // For the batch positions output file
 constexpr u16 MIN_FULLMOVE_COUNTER = 9;
 constexpr u8 MAX_HALFMOVE_CLOCK = 89;
 constexpr i16 MAX_SCORE_CP = 8000;
@@ -68,10 +68,12 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
+    std::cout << "Batch size for batch positions output file: " << BATCH_SIZE << std::endl;
+
     // Output file storing the position of each batch in the converted file
     // according to BATCH_SIZE
     const std::string batchPositionsFileName = "batch_positions.bin";
-    std::cout << "Batch positions file: " << batchPositionsFileName << std::endl;
+    std::cout << "Batch positions output file: " << batchPositionsFileName << std::endl;
 
     // Open batches file
     std::ofstream batchPositionsFile(batchPositionsFileName, std::ios::binary);

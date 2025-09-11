@@ -50,6 +50,8 @@ if __name__ == "__main__":
         THREADS
     )
 
+    exit(1)
+
     net = NetValuePolicy().to(DEVICE)
 
     #optimizer = torch.optim.Adam(net.parameters(), lr=LR)
