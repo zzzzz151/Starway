@@ -59,9 +59,9 @@ class NetValuePolicy(torch.nn.Module):
     def print_info(self):
         print("Net name:", NET_NAME)
 
-        print("Net arch: ({}->{})x2--pairwise->{}->(1+{})",
+        print("Net arch: ({}->{})x2--pairwise->{}->(1+{})".format(
             INPUT_SIZE,
             HIDDEN_SIZE,
             HIDDEN_SIZE,
             POLICY_OUTPUT_SIZE
-        )
+        ))

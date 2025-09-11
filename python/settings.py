@@ -25,7 +25,7 @@ SAVE_INTERVAL = 1 # Save net every SAVE_INTERVAL superbatches
 
 DATA_FILE_PATH = "converted.bin" # .bin data file
 BATCH_SIZE = 16384
-THREADS = 1
+THREADS = 12
 
 # Learning rate schedule
 LR = 0.001 * (0.99**(START_SUPERBATCH - 1))

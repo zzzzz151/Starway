@@ -87,9 +87,6 @@ if __name__ == "__main__":
         sb_value_loss = 0.0
         sb_policy_loss = 0.0
 
-        if superbatch_num > 1:
-            lr_scheduler.step()
-
         for param_group in optimizer.param_groups:
             print("LR for superbatch #{}:".format(superbatch_num), round(param_group['lr'], 5))
 
@@ -111,8 +108,11 @@ if __name__ == "__main__":
 
             value_abs_diff = torch.abs(torch.sigmoid(pred_value) - expected_value)
 
+            def softmax(x):
+                return torch.nn.functional.softmax(x, dim=1)
+
             value_loss = torch.pow(value_abs_diff, 2.5).mean()
-            policy_loss = ce_fn(pred_logits, target_logits)
+            policy_loss = ce_fn(softmax(pred_logits), softmax(target_logits))
 
             loss = value_loss * VALUE_LOSS_WEIGHT + policy_loss * POLICY_LOSS_WEIGHT
 
@@ -157,6 +157,8 @@ if __name__ == "__main__":
                 else:
                     sys.stdout.write(log)
                     sys.stdout.flush()
+
+        lr_scheduler.step()
 
         # Save checkpoint as .pt (pytorch file)
         mod = (superbatch_num - START_SUPERBATCH + 1) % SAVE_INTERVAL
