@@ -1,16 +1,17 @@
 .vscode/
 __pycache__/
+checkpoints/
 
 **/*.exe
-
 **/*.dll
 **/*.lib
 **/*.exp
 **/*.so
-
 **/*.bin
-!**/moves_map_1880.bin
-
 **/*.binpack
 
-checkpoints/
+**/montyformat_to_starway
+cpp/chess/test
+
+!**/moves_map_1880.bin
+!cpp/chess/embeds/*.bin

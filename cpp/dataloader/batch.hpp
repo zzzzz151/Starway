@@ -1,12 +1,11 @@
-// clang-format off
+
 
 #pragma once
 
 #include "utils.hpp"
 
 struct Batch {
-public:
-
+   public:
     std::size_t numActiveFeatures = 0;
 
     i16* activeFeaturesStm;
@@ -27,7 +26,7 @@ public:
         activeFeaturesNtm = new i16[batchSize * 32];
 
         stmScores = new i16[batchSize];
-        stmWDLs   = new float[batchSize];
+        stmWDLs = new float[batchSize];
 
         bestMoveIdx1882 = new i16[batchSize];
 
@@ -35,4 +34,4 @@ public:
         legalMovesIdxs1882 = new i16[batchSize * 127 * 2];
     }
 
-}; // struct Batch
+};  // struct Batch
