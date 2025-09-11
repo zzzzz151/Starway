@@ -17,10 +17,14 @@
 #include "types.hpp"
 #include "util.hpp"
 
+// My move mapping
 INCBIN(MovesMap1880, "moves_map_1880.bin");
 
 const MultiArray<i16, 64, 64, 7> MOVES_MAP_1880 =
     *reinterpret_cast<const MultiArray<i16, 64, 64, 7>*>(gMovesMap1880Data);
+
+// Montyformat move encoding:
+// https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#moves-and-their-associated-information
 
 enum class MfMoveFlag : u16 {
     Quiet = 0,

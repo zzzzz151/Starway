@@ -10,6 +10,8 @@
 #include "../chess/util.hpp"
 #include "../utils.hpp"
 
+// Montyformat compressed board
+// https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#compressed-board
 struct CompressedBoard {
    private:
     std::array<u64, 4> mBbs;
@@ -81,18 +83,22 @@ struct CompressedBoard {
 
         assert((mCastlingRights & 0b1111'0000) == 0);
 
+        // White king side right
         if ((mCastlingRights & 0b0000'0100) > 0) {
             pos.enableCastlingRight(Color::White, true);
         }
 
+        // White queen side right
         if ((mCastlingRights & 0b0000'1000) > 0) {
             pos.enableCastlingRight(Color::White, false);
         }
 
+        // Black king side right
         if ((mCastlingRights & 0b0000'0001) > 0) {
             pos.enableCastlingRight(Color::Black, true);
         }
 
+        // Black queen side right
         if ((mCastlingRights & 0b0000'0010) > 0) {
             pos.enableCastlingRight(Color::Black, false);
         }

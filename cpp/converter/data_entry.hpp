@@ -9,7 +9,7 @@
 #include "../chess/util.hpp"
 #include "../utils.hpp"
 
-// Masks for misc data
+// Masks for StarwayDataEntry.mMiscData
 // "x-y" includes both x-th and y-th bits
 enum class Mask : u32 {
     // 1st lowest bit: set if black to move
@@ -42,6 +42,8 @@ enum class Mask : u32 {
     // 31-32: unused
 };
 
+// How the visits are encoded:
+// https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#visit-distribution
 struct MoveAndVisits {
    public:
     u16 move;
@@ -62,18 +64,19 @@ struct StarwayDataEntry {
 
     i16 stmScore;
 
+    // The number of filled MoveAndVisits elements is the number of legal moves
     // The u16 move is oriented (flipped vertically if black to move)
     std::array<MoveAndVisits, 256> visits;
 
     constexpr StarwayDataEntry() {}  // Does not init fields
 
-    // Misc data
+    // Get some field from misc data
     constexpr u32 get(const Mask mask) const {
         const u32 maskU32 = static_cast<u32>(mask);
         return (mMiscData & maskU32) >> std::countr_zero(maskU32);
     }
 
-    // Misc data
+    // Set some field in misc data
     constexpr void set(const Mask mask, const u32 value) {
         const u32 maskU32 = static_cast<u32>(mask);
         assert(value <= (maskU32 >> std::countr_zero(maskU32)));
@@ -81,6 +84,7 @@ struct StarwayDataEntry {
         mMiscData |= value << std::countr_zero(maskU32);
     }
 
+    // Calculate and set mMiscData
     constexpr void setMiscData(const Position& pos, const u8 stmWdl, const u8 numMoves) {
         mMiscData = 0;
 
@@ -105,6 +109,7 @@ struct StarwayDataEntry {
             const Square epSquare = *(pos.getEpSquare());
             set(Mask::EP_FILE, static_cast<u32>(fileOf(epSquare)));
         } else {
+            // Store file 8 if no ep square
             set(Mask::EP_FILE, 8);
         }
 
@@ -116,10 +121,12 @@ struct StarwayDataEntry {
         this->occupied = 0;
         this->pieces = 0;
 
+        // Black bitboard, flipped vertically if black to move
         const u64 blackBbOriented = pos.mSideToMove == Color::White
                                         ? pos.getBb(Color::Black)
                                         : __builtin_bswap64(pos.getBb(Color::Black));
 
+        // Occupancy, flipped vertically if black to move
         u64 occOriented =
             pos.mSideToMove == Color::White ? pos.getOcc() : __builtin_bswap64(pos.getOcc());
 
@@ -138,6 +145,8 @@ struct StarwayDataEntry {
         ofstream.write(reinterpret_cast<const char*>(&this->occupied), sizeof(this->occupied));
         ofstream.write(reinterpret_cast<const char*>(&this->pieces), sizeof(this->pieces));
         ofstream.write(reinterpret_cast<const char*>(&this->stmScore), sizeof(this->stmScore));
+
+        // For the visits, we only write the filled MoveAndVisits elements (number of legal moves)
 
         const std::streamsize elemSize = static_cast<std::streamsize>(sizeof(MoveAndVisits));
         const std::streamsize numMoves = get(Mask::NUM_MOVES);
