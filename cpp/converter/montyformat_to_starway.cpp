@@ -122,7 +122,7 @@ int main(int argc, char* argv[]) {
 
         [[maybe_unused]] size_t posNum = 0;
         while (!dataEntriesLimit.has_value() || entriesWritten < *dataEntriesLimit) {
-            // New position and data entry
+            // New position (data entry)
             posNum++;
             // std::cout << "Reading game #" << gameNum << " position #" << posNum << std::endl;
 
@@ -140,7 +140,9 @@ int main(int argc, char* argv[]) {
                 break;
             }
 
-            mfBestMove.validate(pos.mSideToMove == Color::White);
+            const PieceType ptMoving = pos.at(mfBestMove.getSrc()).value();
+            mfBestMove.validate(pos.mSideToMove == Color::White, ptMoving);
+            assert(mapMoveIdx(mfBestMove.maybeRanksFlipped(pos.mSideToMove)) >= 0);
 
             // https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#score
             mfFile.read(reinterpret_cast<char*>(&mfScore), sizeof(mfScore));

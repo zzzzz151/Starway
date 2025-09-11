@@ -1,37 +1,31 @@
-
-
 #pragma once
 
-#include "utils.hpp"
+#include "../utils.hpp"
+
+constexpr size_t MAX_LEGAL_MOVES = 218;
 
 struct Batch {
    public:
-    std::size_t numActiveFeatures = 0;
-
     i16* activeFeaturesStm;
     i16* activeFeaturesNtm;
 
     i16* stmScores;
     float* stmWDLs;
 
-    i16* bestMoveIdx1882;
-
-    std::size_t totalLegalMoves = 0;
-    i16* legalMovesIdxs1882;
+    std::size_t totalLegalMoves;
+    i16* legalMovesIdx;
+    u8* visits;
 
     constexpr Batch(const std::size_t batchSize) {
-        // Array size is * 2 because the features are (positionIndex, feature)
-        // AKA a (numActiveFeatures, 2) matrix
-        activeFeaturesStm = new i16[batchSize * 32];
-        activeFeaturesNtm = new i16[batchSize * 32];
+        this->activeFeaturesStm = new i16[batchSize * 32];
+        this->activeFeaturesNtm = new i16[batchSize * 32];
 
-        stmScores = new i16[batchSize];
-        stmWDLs = new float[batchSize];
+        this->stmScores = new i16[batchSize];
+        this->stmWDLs = new float[batchSize];
 
-        bestMoveIdx1882 = new i16[batchSize];
-
-        // Train data only has positions with more than 0 legal moves and less than 128
-        legalMovesIdxs1882 = new i16[batchSize * 127 * 2];
+        this->totalLegalMoves = 0;
+        this->legalMovesIdx = new i16[batchSize * MAX_LEGAL_MOVES];
+        this->visits = new u8[batchSize * MAX_LEGAL_MOVES];
     }
 
 };  // struct Batch

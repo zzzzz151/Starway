@@ -1,27 +1,13 @@
 #pragma once
 
-// incbin fuckery
-#ifdef _MSC_VER
-#define STARWAY_MSVC
-#pragma push_macro("_MSC_VER")
-#undef _MSC_VER
-#endif
-
 #include <array>
 #include <cassert>
 #include <optional>
 #include <string>
 
-#include "../incbin.h"
 #include "../utils.hpp"
 #include "types.hpp"
 #include "util.hpp"
-
-// My move mapping
-INCBIN(MovesMap1880, "moves_map_1880.bin");
-
-const MultiArray<i16, 64, 64, 7> MOVES_MAP_1880 =
-    *reinterpret_cast<const MultiArray<i16, 64, 64, 7>*>(gMovesMap1880Data);
 
 // Montyformat move encoding:
 // https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#moves-and-their-associated-information
@@ -141,7 +127,7 @@ struct MontyformatMove {
         return MontyformatMove(newSrc, newDst, getFlag());
     }
 
-    constexpr void validate(const bool whiteToMove) const {
+    constexpr void validate(const bool whiteToMove, const PieceType pt) const {
         assert(!isNull());
 
         const Square src = getSrc();
@@ -150,11 +136,6 @@ struct MontyformatMove {
         assert(src != dst);
 
         const MfMoveFlag flag = getFlag();
-
-        if (flag == MfMoveFlag::PawnDoublePush) {
-            assert(rankOf(src) == (whiteToMove ? Rank::Rank2 : Rank::Rank7));
-            assert(rankOf(dst) == (whiteToMove ? Rank::Rank4 : Rank::Rank5));
-        }
 
         if (isKsCastling() || isQsCastling()) {
             assert(src == (whiteToMove ? Square::E1 : Square::E8));
@@ -168,22 +149,29 @@ struct MontyformatMove {
             assert(dst == (whiteToMove ? Square::C1 : Square::C8));
         }
 
+        // No pawns in backranks
+        if (pt == PieceType::Pawn) {
+            assert(!isBackrank(rankOf(src)));
+        }
+
+        if (flag == MfMoveFlag::PawnDoublePush) {
+            assert(rankOf(src) == (whiteToMove ? Rank::Rank2 : Rank::Rank7));
+            assert(rankOf(dst) == (whiteToMove ? Rank::Rank4 : Rank::Rank5));
+            assert(pt == PieceType::Pawn);
+        }
+
         // Pawn can only promote in backrank
         if (isPromo()) {
             assert(rankOf(src) == (whiteToMove ? Rank::Rank7 : Rank::Rank2));
             assert(rankOf(dst) == (whiteToMove ? Rank::Rank8 : Rank::Rank1));
+            assert(pt == PieceType::Pawn);
         }
 
         if (isEnPassant()) {
             assert(rankOf(src) == (whiteToMove ? Rank::Rank5 : Rank::Rank4));
             assert(rankOf(dst) == (whiteToMove ? Rank::Rank6 : Rank::Rank3));
+            assert(pt == PieceType::Pawn);
         }
-
-        const size_t firstIdx = static_cast<size_t>(whiteToMove ? src : rankFlipped(src));
-        const size_t secondIdx = static_cast<size_t>(whiteToMove ? dst : rankFlipped(dst));
-        const size_t thirdIdx = isPromo() ? static_cast<size_t>(*getPromoPt()) : 6;
-
-        assert(MOVES_MAP_1880[firstIdx][secondIdx][thirdIdx] >= 0);
     }
 
 };  // struct MontyformatMove
