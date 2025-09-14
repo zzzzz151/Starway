@@ -65,7 +65,7 @@ struct StarwayDataEntry {
 
     // The number of filled MoveAndVisits elements is the number of legal moves
     // The u16 move is oriented (flipped vertically if black to move)
-    std::array<MoveAndVisits, 256> visits;
+    std::array<MoveAndVisits, 218> visits;
 
     constexpr StarwayDataEntry() {}  // Does not init fields
 
@@ -87,8 +87,8 @@ struct StarwayDataEntry {
     constexpr void setMiscData(const Position& pos, const u8 stmWdl, const u8 numMoves) {
         this->miscData = 0;
 
-        assert(stmWdl == 0 || stmWdl == 1 || stmWdl == 2);
-        assert(numMoves > 0 && numMoves <= 218);
+        assert(stmWdl <= 2);
+        assert(numMoves > 0 && static_cast<size_t>(numMoves) <= visits.size());
 
         Square ourKingSqOriented = maybeRankFlipped(pos.getKingSq(Color::White), pos.mSideToMove);
         Square theirKingSqOriented = maybeRankFlipped(pos.getKingSq(Color::Black), pos.mSideToMove);
@@ -143,7 +143,7 @@ struct StarwayDataEntry {
     constexpr std::streamsize visitsBytesCount() const {
         const std::streamsize elemSize = static_cast<std::streamsize>(sizeof(MoveAndVisits));
         const std::streamsize numMoves = get(Mask::NUM_MOVES);
-        assert(numMoves > 0 && numMoves <= 218);
+        assert(numMoves > 0 && static_cast<size_t>(numMoves) <= visits.size());
         return elemSize * numMoves;
     }
 

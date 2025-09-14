@@ -26,6 +26,7 @@ if __name__ == "__main__":
 
     print("Save interval: every {} superbatches".format(SAVE_INTERVAL))
     print("Data file:", DATA_FILE_PATH)
+    print("Batch offsets file:", BATCH_OFFSETS_FILE_PATH)
     print("Batch size:", BATCH_SIZE)
     print("Dataloader threads:", THREADS)
 
@@ -35,9 +36,8 @@ if __name__ == "__main__":
     print("Value scale:", SCALE)
     print("WDL weight for value head:", WDL_WEIGHT)
     print("FT params clipping: [{}, {}]".format(-FT_MAX_WEIGHT_BIAS, FT_MAX_WEIGHT_BIAS))
-    print()
 
-    # Launch dataloader
+    # Create dataloader
     dll_exists = os.path.exists("./dataloader.dll")
     so_exists = os.path.exists("./dataloader.so")
     assert dll_exists or so_exists
@@ -45,15 +45,18 @@ if __name__ == "__main__":
 
     # Define dataloader functions
     dataloader.init.restype = None # void
-    dataloader.init.argtypes = [ctypes.c_char_p, ctypes.c_int32, ctypes.c_int32]
+    dataloader.init.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_size_t, ctypes.c_size_t]
     dataloader.nextBatch.restype = ctypes.POINTER(Batch)
 
     # Init dataloader
     dataloader.init(
         ctypes.c_char_p(DATA_FILE_PATH.encode('utf-8')),
+        ctypes.c_char_p(BATCH_OFFSETS_FILE_PATH.encode('utf-8')),
         BATCH_SIZE,
         THREADS
     )
+
+    print()
 
     net = torch.compile(net)
 

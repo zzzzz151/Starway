@@ -1,10 +1,22 @@
+/*
+Usage:
+./montyformat_to_starway
+    <montyformat file>
+    <output data file>
+    <max RAM usage in MB>
+    <batch offsets output file>
+    <batch size>
+    <batches to output>
+*/
+
 #include <algorithm>
 #include <bit>
 #include <cassert>
 #include <cmath>
 #include <fstream>
 #include <iostream>
-#include <optional>
+#include <random>
+#include <vector>
 
 #include "../chess/move_gen.hpp"
 #include "../chess/position.hpp"
@@ -14,102 +26,139 @@
 #include "compressed_board.hpp"
 #include "data_entry.hpp"
 
-constexpr size_t BATCH_SIZE = 16384;  // For the batch positions output file
 constexpr u16 MIN_FULLMOVE_COUNTER = 9;
 constexpr u8 MAX_HALFMOVE_CLOCK = 89;
 constexpr i16 MAX_SCORE_CP = 8000;
+
+// Returns number of entries written
+constexpr size_t shuffleWriteClearBuffer(std::vector<StarwayDataEntry>& buffer,
+                                         std::ofstream& outDataFile,
+                                         std::ofstream& batchOffsetsOutFile,
+                                         const size_t batchSize) {
+    // No partial batches: if the trailing data entries are a partial batch, discard it
+    buffer.resize(buffer.size() - buffer.size() % batchSize);
+    assert(buffer.size() % batchSize == 0);
+
+    // Shuffle data entries in buffer
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::shuffle(buffer.begin(), buffer.end(), gen);
+
+    // Iterate data entries in buffer
+    for (size_t i = 0; i < buffer.size(); i++) {
+        StarwayDataEntry& entry = buffer[i];
+
+        // If starting a new batch, write its offset to the batch offsets output file
+        if (i % batchSize == 0) {
+            const size_t batchOffset = static_cast<size_t>(outDataFile.tellp());
+
+            batchOffsetsOutFile.write(reinterpret_cast<const char*>(&batchOffset),
+                                      sizeof(batchOffset));
+        }
+
+        // Write data entry to output data file
+        outDataFile.write(reinterpret_cast<const char*>(&entry.miscData), sizeof(entry.miscData));
+        outDataFile.write(reinterpret_cast<const char*>(&entry.occupied), sizeof(entry.occupied));
+        outDataFile.write(reinterpret_cast<const char*>(&entry.pieces), sizeof(entry.pieces));
+        outDataFile.write(reinterpret_cast<const char*>(&entry.stmScore), sizeof(entry.stmScore));
+
+        // For the visits array, we only write the filled elements (number of legal moves)
+        outDataFile.write(reinterpret_cast<const char*>(&entry.visits), entry.visitsBytesCount());
+    }
+
+    // clear() does not change vector's capacity
+    const size_t bufferSize = buffer.size();
+    buffer.clear();
+    return bufferSize;
+}
 
 // https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#score
 constexpr i16 mfScoreToCentipawns(const u16 mfScore) {
     const double wdl =
         static_cast<double>(mfScore) / static_cast<double>(std::numeric_limits<u16>::max());
 
-    if (wdl == 0.0) {
+    if (wdl <= 0.0) {
         return -32767;
     }
 
-    if (wdl == 1.0) {
+    if (wdl >= 1.0) {
         return 32767;
     }
 
     const double unsigmoided = std::log(wdl / (1.0 - wdl)) * 400.0;
     const i32 cp = static_cast<i32>(round(unsigmoided));
-
     return static_cast<i16>(std::clamp<i32>(cp, -32767, 32767));
 }
 
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        std::cerr << "Usage: " << argv[0] << " <montyformat_file> <data_entries_limit>"
-                  << std::endl;
-
+    if (argc < 7) {
+        std::cerr << "Usage: ";
+        std::cerr << argv[0];
+        std::cerr << " <montyformat input file>";
+        std::cerr << " <output data file>";
+        std::cerr << " <max RAM usage in MB>";
+        std::cerr << " <batch offsets output file>";
+        std::cerr << " <batch size>";
+        std::cerr << " <batches to output>";
+        std::cerr << std::endl;
         return 1;
     }
 
-    // Montyformat file name
+    // Read program args
     const std::string mfFileName = argv[1];
-    std::cout << "Input file: " << mfFileName << std::endl;
+    const std::string outDataFileName = argv[2];
+    const size_t maxRamMB = std::stoull(argv[3]);
+    const std::string batchOffsetsOutFileName = argv[4];
+    const size_t batchSize = std::stoull(argv[5]);
+    const size_t targetNumBatches = std::stoull(argv[6]);
 
-    // Open montyformat file
+    // Print program args
+    std::cout << "Input data file: " << mfFileName << std::endl;
+    std::cout << "Output data file: " << outDataFileName << std::endl;
+    std::cout << "Max RAM usage in MB: " << maxRamMB << std::endl;
+    std::cout << "Batch offsets output file: " << batchOffsetsOutFileName << std::endl;
+    std::cout << "Batch size: " << batchSize << " data entries" << std::endl;
+    std::cout << "Batches to output: " << targetNumBatches << std::endl;
+
+    assert(maxRamMB > 0);
+    assert(batchSize > 0);
+    assert(targetNumBatches > 0);
+
+    // Open files
     std::ifstream mfFile(mfFileName, std::ios::binary);
-    if (!mfFile) {
-        std::cerr << "Error: Could not open file " << mfFileName << std::endl;
-        return 1;
-    }
+    std::ofstream outDataFile(outDataFileName, std::ios::binary);
+    std::ofstream batchOffsetsOutFile(batchOffsetsOutFileName, std::ios::binary);
 
-    // Output file name
-    const std::string outFileName = "converted.bin";
-    std::cout << "Output file: " << outFileName << std::endl;
+    assert(mfFile);
+    assert(outDataFile);
+    assert(batchOffsetsOutFile);
 
-    // Open output file
-    std::ofstream outFile(outFileName, std::ios::binary);
-    if (!outFile) {
-        std::cerr << "Error: Could not open file " << outFileName << std::endl;
-        return 1;
-    }
+    // How many StarwayDataEntry can the buffer hold?
+    size_t bufferCapacity = maxRamMB * 1000 * 1000 / sizeof(StarwayDataEntry);
+    bufferCapacity -= bufferCapacity % batchSize;
 
-    std::cout << "Batch size for batch positions output file: " << BATCH_SIZE << std::endl;
+    std::cout << "Buffer capacity: " << bufferCapacity << " data entries" << std::endl;
+    assert(bufferCapacity >= batchSize);
 
-    // Output file storing the position of each batch in the converted file
-    // according to BATCH_SIZE
-    const std::string batchPositionsFileName = "batch_positions.bin";
-    std::cout << "Batch positions output file: " << batchPositionsFileName << std::endl;
-
-    // Open batches file
-    std::ofstream batchPositionsFile(batchPositionsFileName, std::ios::binary);
-    if (!batchPositionsFile) {
-        std::cerr << "Error: Could not open file " << batchPositionsFileName << std::endl;
-        return 1;
-    }
-
-    // Did user pass data entries limit in program args?
-    // If yes, we will stop converting once that limit is reached
-    const std::optional<size_t> dataEntriesLimit =
-        argc > 2 ? std::optional<size_t>(std::stoul(argv[2])) : std::nullopt;
-
-    std::cout << "Data entries limit: "
-              << (dataEntriesLimit.has_value() ? std::to_string(*dataEntriesLimit) : "none")
-              << std::endl;
+    std::vector<StarwayDataEntry> buffer;
+    buffer.reserve(bufferCapacity);
 
     size_t gameNum = 0;
     size_t entriesWritten = 0;
     size_t entriesSkipped = 0;
 
-    StarwayDataEntry dataEntry;
-
-    while (mfFile && (!dataEntriesLimit.has_value() || entriesWritten < *dataEntriesLimit)) {
+    while (entriesWritten + buffer.size() < targetNumBatches * batchSize) {
         // Read compressed board
         CompressedBoard compressedBoard;
         mfFile.read(reinterpret_cast<char*>(&compressedBoard), sizeof(compressedBoard));
 
-        // End of the montyformat file?
+        // End of the montyformat input file?
         if (!mfFile) {
             break;
         }
 
         // New game
         gameNum++;
-        // std::cout << "Reading game #" << gameNum << std::endl;
 
         // Convert compressed board to our position class which is easier to work with
         Position pos = compressedBoard.decompress();
@@ -120,14 +169,14 @@ int main(int argc, char* argv[]) {
         u8 mfWhiteWdl;
         mfFile.read(reinterpret_cast<char*>(&mfWhiteWdl), sizeof(mfWhiteWdl));
         assert(mfFile);
-        assert(mfWhiteWdl == 0 || mfWhiteWdl == 1 || mfWhiteWdl == 2);
+        assert(mfWhiteWdl <= 2);
 
-        [[maybe_unused]] size_t posNum = 0;
-        while (!dataEntriesLimit.has_value() || entriesWritten < *dataEntriesLimit) {
-            // New position (data entry)
-            posNum++;
-            // std::cout << "Reading game #" << gameNum << " position #" << posNum << std::endl;
+        const auto getStmWdl = [&]() -> u8 {
+            return pos.mSideToMove == Color::White ? mfWhiteWdl : 2 - mfWhiteWdl;
+        };
 
+        // Iterate the game's positions (1 pos = 1 Starway data entry)
+        while (entriesWritten + buffer.size() < targetNumBatches * batchSize) {
             // We will read from the montyformat file into these 3 fields
             MontyformatMove mfBestMove;
             u16 mfScore;
@@ -142,6 +191,7 @@ int main(int argc, char* argv[]) {
                 break;
             }
 
+            // Validate move
             const PieceType ptMoving = pos.at(mfBestMove.getSrc()).value();
             mfBestMove.validate(pos.mSideToMove == Color::White, ptMoving);
             assert(mapMoveIdx(mfBestMove.maybeRanksFlipped(pos.mSideToMove)) >= 0);
@@ -155,15 +205,34 @@ int main(int argc, char* argv[]) {
             assert(mfFile);
             assert(mfMovesCount > 0 && mfMovesCount <= 218);
 
-            dataEntry.setMiscData(
-                pos, pos.mSideToMove == Color::White ? mfWhiteWdl : 2 - mfWhiteWdl, mfMovesCount);
+            const i16 stmScoreCp = mfScoreToCentipawns(mfScore);
 
+            // Data filtering
+            bool skip = pos.isInsufficientMaterial();
+            skip |= pos.getFullMoveCounter() < MIN_FULLMOVE_COUNTER;
+            skip |= pos.getHalfMoveClock() > MAX_HALFMOVE_CLOCK;
+            skip |= std::abs(stmScoreCp) > MAX_SCORE_CP;
+
+            if (skip) {
+                // Skip visits distribution
+                mfFile.seekg(sizeof(u8) * mfMovesCount, std::ios::cur);
+                assert(mfFile);
+
+                pos.makeMove(mfBestMove);
+                pos.validate();
+
+                entriesSkipped++;
+                continue;
+            }
+
+            buffer.push_back(StarwayDataEntry());
+            StarwayDataEntry& dataEntry = buffer.back();
+
+            dataEntry.setMiscData(pos, getStmWdl(), mfMovesCount);
             dataEntry.setOccAndPieces(pos);
-
-            dataEntry.stmScore = mfScoreToCentipawns(mfScore);
+            dataEntry.stmScore = stmScoreCp;
 
             auto legalMoves = getLegalMoves(pos);
-
             assert(static_cast<size_t>(mfMovesCount) == legalMoves.size());
             assert(legalMoves.contains(mfBestMove));
 
@@ -174,7 +243,7 @@ int main(int argc, char* argv[]) {
                           return a.asU16() < b.asU16();
                       });
 
-            // Read visits distribution (looping over legal moves)
+            // Read visits distribution (looping the legal moves)
             // https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#visit-distribution
             u8 highestVisits = 0;
             for (size_t i = 0; i < mfMovesCount; i++) {
@@ -192,66 +261,48 @@ int main(int argc, char* argv[]) {
 
             assert(highestVisits == 255);
 
-            const auto numPieces = std::popcount(pos.getOcc());
+            // Data entries buffer is full?
+            if (buffer.size() >= buffer.capacity()) {
+                // Write data entries in buffer to output data file
+                entriesWritten +=
+                    shuffleWriteClearBuffer(buffer, outDataFile, batchOffsetsOutFile, batchSize);
 
-            const bool hasKnightOrBishop =
-                (pos.getBb(PieceType::Knight) | pos.getBb(PieceType::Bishop)) > 0;
+                assert(entriesWritten % batchSize == 0);
 
-            // Data entry filtering
-            bool skip = numPieces <= 2 || (numPieces == 3 && hasKnightOrBishop);
-            skip |= pos.getFullMoveCounter() < MIN_FULLMOVE_COUNTER;
-            skip |= pos.getHalfMoveClock() > MAX_HALFMOVE_CLOCK;
-            skip |= std::abs(dataEntry.stmScore) > MAX_SCORE_CP;
+                // Log conversion progress once in a while
+                const size_t batchesWritten = entriesWritten / batchSize;
+                std::cout << "\nCurrently on game #" << gameNum << std::endl;
+                std::cout << "Total batches written: " << batchesWritten << std::endl;
+                std::cout << "Total data entries written: " << entriesWritten << std::endl;
+                std::cout << "Total data entries skipped: " << entriesSkipped << std::endl;
+            }
 
             pos.makeMove(mfBestMove);
             pos.validate();
-
-            if (skip) {
-                entriesSkipped++;
-                continue;
-            }
-
-            if (entriesWritten % BATCH_SIZE == 0) {
-                const size_t outFileSize = static_cast<size_t>(outFile.tellp());
-
-                batchPositionsFile.write(reinterpret_cast<const char*>(&outFileSize),
-                                         sizeof(outFileSize));
-            }
-
-            // Write data entry to output file
-
-            outFile.write(reinterpret_cast<const char*>(&dataEntry.miscData),
-                          sizeof(dataEntry.miscData));
-
-            outFile.write(reinterpret_cast<const char*>(&dataEntry.occupied),
-                          sizeof(dataEntry.occupied));
-
-            outFile.write(reinterpret_cast<const char*>(&dataEntry.pieces),
-                          sizeof(dataEntry.pieces));
-
-            outFile.write(reinterpret_cast<const char*>(&dataEntry.stmScore),
-                          sizeof(dataEntry.stmScore));
-
-            // For the 'visits' member field,
-            // we only write the filled MoveAndVisits elements (number of legal moves)
-            outFile.write(reinterpret_cast<const char*>(&dataEntry.visits),
-                          dataEntry.visitsBytesCount());
-
-            entriesWritten++;
-
-            // Log conversion progress once in a while
-            if (entriesWritten % 1'048'576 == 0) {
-                std::cout << "\nCurrently on game #" << gameNum << std::endl;
-                std::cout << "Wrote " << entriesWritten << " data entries total" << std::endl;
-                std::cout << "Skipped " << entriesSkipped << " data entries total" << std::endl;
-            }
         }
     }
 
-    std::cout << "\nFinished" << std::endl;
-    std::cout << "Parsed " << gameNum << " games" << std::endl;
-    std::cout << "Wrote " << entriesWritten << " data entries total" << std::endl;
-    std::cout << "Skipped " << entriesSkipped << " data entries total" << std::endl;
+    // Write leftover data entries that are still in the buffer
+    entriesWritten += shuffleWriteClearBuffer(buffer, outDataFile, batchOffsetsOutFile, batchSize);
+    assert(entriesWritten % batchSize == 0);
+
+    const size_t batchesWritten = entriesWritten / batchSize;
+    std::cout << "\nParsed " << gameNum << " games" << std::endl;
+    std::cout << "Total batches written: " << batchesWritten << std::endl;
+    std::cout << "Total data entries written: " << entriesWritten << std::endl;
+    std::cout << "Total data entries skipped: " << entriesSkipped << std::endl;
+
+    assert(static_cast<size_t>(batchOffsetsOutFile.tellp()) / sizeof(size_t) == batchesWritten);
+
+    // Print interleave command
+    std::cout << "\nRun ./interleave";
+    std::cout << " " << outDataFileName;
+    std::cout << " interleaved_" << outDataFileName;
+    std::cout << " " << bufferCapacity;
+    std::cout << " " << batchOffsetsOutFileName;
+    std::cout << " interleaved_" << batchOffsetsOutFileName;
+    std::cout << " " << batchSize;
+    std::cout << std::endl;
 
     return 0;
 }

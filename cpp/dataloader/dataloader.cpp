@@ -1,6 +1,7 @@
 #include <cstring>
 #include <iostream>
 #include <thread>
+#include <vector>
 
 #include "../chess/types.hpp"
 #include "../chess/util.hpp"
@@ -18,39 +19,45 @@
 
 // These constants are set in init(), which is called from train.py
 std::string DATA_FILE_PATH = "";
-size_t BATCH_SIZE = 0;
-size_t NUM_THREADS = 0;
+std::vector<size_t> BATCH_OFFSETS;
+size_t BATCH_SIZE = 1;
+size_t NUM_THREADS = 1;
 
 std::vector<Batch> gBatches = {};  // NUM_THREADS batches
 size_t gTotalBatchesYielded = 0;
 
-extern "C" API void init(const char* dataFilePath, const i32 batchSize, const i32 numThreads) {
-    std::cout << "Batches in batch positions file: " << BATCH_POSITIONS.size() << std::endl;
+extern "C" API void init(const char* dataFilePath,
+                         const char* batchOffsetsFilePath,
+                         const size_t batchSize,
+                         const size_t numThreads) {
+    assert(batchSize > 0);
+    assert(numThreads > 0);
 
-    DATA_FILE_PATH = static_cast<std::string>(dataFilePath);
+    DATA_FILE_PATH = dataFilePath;
+    BATCH_SIZE = batchSize;
+    NUM_THREADS = numThreads;
 
-    // Open file in binary mode and at the end
-    std::ifstream dataFile(DATA_FILE_PATH, std::ios::binary | std::ios::ate);
+    // Open batch offsets file at its end
+    std::ifstream batchOffsetsFile(static_cast<std::string>(batchOffsetsFilePath),
+                                   std::ios::binary | std::ios::ate);
 
-    if (!dataFile) {
-        std::cerr << "Error opening file " << DATA_FILE_PATH << std::endl;
-        exit(EXIT_FAILURE);
-    }
+    assert(batchOffsetsFile);
 
-    if (batchSize <= 0) {
-        std::cerr << "Batch size must be > 0 but is " << batchSize << std::endl;
-        exit(EXIT_FAILURE);
-    }
+    // Move batch offsets from batch offsets file into RAM
 
-    if (numThreads <= 0) {
-        std::cerr << "Threads count must be > 0 but is " << numThreads << std::endl;
-        exit(EXIT_FAILURE);
-    }
+    BATCH_OFFSETS.resize(static_cast<size_t>(batchOffsetsFile.tellg()) / sizeof(size_t));
+    assert(BATCH_OFFSETS.size() > 0);
 
-    BATCH_SIZE = static_cast<size_t>(batchSize);
-    NUM_THREADS = static_cast<size_t>(numThreads);
+    std::cout << "Batches in data file: " << BATCH_OFFSETS.size() << std::endl;
 
-    // Allocate gBatches
+    batchOffsetsFile.seekg(0, std::ios::beg);
+
+    batchOffsetsFile.read(reinterpret_cast<char*>(BATCH_OFFSETS.data()),
+                          static_cast<i64>(BATCH_OFFSETS.size() * sizeof(size_t)));
+
+    assert(batchOffsetsFile);
+
+    // Allocate batches (1 for each thread)
     for (size_t i = 0; i < NUM_THREADS; i++) {
         gBatches.push_back(Batch(BATCH_SIZE));
     }
@@ -62,8 +69,8 @@ constexpr void loadBatch(const size_t threadId) {
     assert(dataFile);
 
     // In the data file, go to the position of our batch to read
-    size_t idx = (gTotalBatchesYielded + threadId) % BATCH_POSITIONS.size();
-    dataFile.seekg(static_cast<i64>(BATCH_POSITIONS[idx]), std::ios::beg);
+    size_t idx = (gTotalBatchesYielded + threadId) % BATCH_OFFSETS.size();
+    dataFile.seekg(static_cast<i64>(BATCH_OFFSETS[idx]), std::ios::beg);
 
     // Batch to fill
     Batch& batch = gBatches[threadId];
@@ -78,10 +85,10 @@ constexpr void loadBatch(const size_t threadId) {
     // Initially, assume all logits in the batch are illegal and set them to large negative number
     std::fill(batch.logits, batch.logits + BATCH_SIZE * POLICY_OUTPUT_SIZE, -10'000);
 
-    StarwayDataEntry dataEntry;
-
     for (size_t entryIdx = 0; entryIdx < BATCH_SIZE; entryIdx++) {
-        // Read data entry (position)
+        StarwayDataEntry dataEntry;
+
+        // Read data entry
         dataFile.read(reinterpret_cast<char*>(&dataEntry),
                       sizeof(u32) + sizeof(u64) + sizeof(u128) + sizeof(i16));
 
@@ -90,6 +97,8 @@ constexpr void loadBatch(const size_t threadId) {
         // Read visits distribution of this entry
         dataFile.read(reinterpret_cast<char*>(&dataEntry.visits), dataEntry.visitsBytesCount());
         assert(dataFile);
+
+        assert(std::popcount(dataEntry.occupied) > 2 && std::popcount(dataEntry.occupied) <= 32);
 
         const bool inCheck = dataEntry.get(Mask::IN_CHECK);
 
@@ -139,12 +148,12 @@ constexpr void loadBatch(const size_t threadId) {
         // In the batch, set score and WDL of this entry
 
         const u8 stmWdl = static_cast<u8>(dataEntry.get(Mask::WDL));
-        assert(stmWdl == 0 || stmWdl == 1 || stmWdl == 2);
+        assert(stmWdl <= 2);
 
         batch.stmScores[entryIdx] = dataEntry.stmScore;
         batch.stmWDLs[entryIdx] = static_cast<float>(stmWdl) / 2.0f;
 
-        // In the batch, set the logits for this data entry (position)
+        // In the batch, set the logits for this data entry
         // Illegal moves stay at a large negative number
         // while legal logits are set to their visits
         for (size_t i = 0; i < static_cast<size_t>(dataEntry.get(Mask::NUM_MOVES)); i++) {

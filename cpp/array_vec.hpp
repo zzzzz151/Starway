@@ -54,9 +54,4 @@ struct ArrayVec {
         return false;
     }
 
-    constexpr void swap(const std::size_t i, const std::size_t j) {
-        assert(i < mSize && j < mSize);
-        std::swap(mArr[i], mArr[j]);
-    }
-
 };  // struct ArrayVec

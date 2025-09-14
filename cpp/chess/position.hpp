@@ -169,6 +169,26 @@ struct Position {
         mFullMoveCounter = value;
     }
 
+    constexpr bool isInsufficientMaterial() const {
+        const auto numPieces = std::popcount(getOcc());
+
+        if (numPieces <= 2) {
+            return true;
+        }
+
+        const auto wKnightsBishopsCount = std::popcount(getBb(Color::White, PieceType::Knight) |
+                                                        getBb(Color::White, PieceType::Bishop));
+
+        const auto bKnightsBishopsCount = std::popcount(getBb(Color::Black, PieceType::Knight) |
+                                                        getBb(Color::Black, PieceType::Bishop));
+
+        if (numPieces == 3 && wKnightsBishopsCount + bKnightsBishopsCount == 1) {
+            return true;
+        }
+
+        return numPieces == 4 && wKnightsBishopsCount == 1 && bKnightsBishopsCount == 1;
+    }
+
     constexpr u64 getCheckers() const {
         const u64 checkers = getBb(!mSideToMove) & getAttackers(getKingSq(mSideToMove), getOcc());
         assert(std::popcount(checkers) <= 2);

@@ -9,9 +9,13 @@ checkpoints/
 **/*.so
 **/*.bin
 **/*.binpack
+**/*.mf
+**/*.sw
+**/*.starway
 
-**/montyformat_to_starway
 cpp/chess/test
+**/montyformat_to_starway
+**/interleave
 
-!**/moves_map_1880.bin
 !cpp/chess/embeds/*.bin
+!**/moves_map_1880.bin

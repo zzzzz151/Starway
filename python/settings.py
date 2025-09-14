@@ -21,10 +21,13 @@ POLICY_OUTPUT_SIZE = 1882
 START_SUPERBATCH = 1
 END_SUPERBATCH = 600
 
-SAVE_INTERVAL = 1 # Save net every SAVE_INTERVAL superbatches
+SAVE_INTERVAL = 1 # Save net checkpoint every SAVE_INTERVAL superbatches
 
-DATA_FILE_PATH = "converted.bin" # .bin data file
+DATA_FILE_PATH = "interleaved_data.sw"
+
+BATCH_OFFSETS_FILE_PATH = "interleaved_batch_offsets.bin"
 BATCH_SIZE = 16384
+
 THREADS = 12
 
 # Learning rate schedule
@@ -51,6 +54,7 @@ assert END_SUPERBATCH > 0
 assert START_SUPERBATCH <= END_SUPERBATCH
 assert SAVE_INTERVAL > 0
 assert os.path.exists(DATA_FILE_PATH)
+assert os.path.exists(BATCH_OFFSETS_FILE_PATH)
 assert BATCH_SIZE > 0
 assert THREADS > 0
 assert LR > 0.0 and LR_DROP_INTERVAL > 0 and LR_MULTIPLIER > 0.0
