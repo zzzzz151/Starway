@@ -51,7 +51,7 @@ class NetValuePolicy(torch.nn.Module):
 
         # [BATCH_SIZE, POLICY_OUTPUT_SIZE]
         pred_logits = self.hidden_to_out_policy(hidden_layer)
-        pred_logits[target_logits_tensor < 0] = -10_000
+        pred_logits[target_logits_tensor == ILLEGAL_LOGITS_VALUE] = ILLEGAL_LOGITS_VALUE
 
         # Return predicted value and logits
         return self.hidden_to_out_value(hidden_layer), pred_logits

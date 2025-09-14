@@ -98,12 +98,12 @@ if __name__ == "__main__":
 
             optimizer.zero_grad(set_to_none=True)
 
-            target_logits = batch.get_target_logits_tensor()
+            target_logits_tensor = batch.get_target_logits_tensor()
 
             pred_value, pred_logits = net.forward(
                 batch.get_features_tensor(True),
                 batch.get_features_tensor(False),
-                target_logits
+                target_logits_tensor
             )
 
             expected_value = torch.sigmoid(batch.get_scores_tensor() / float(SCALE)) * SCORE_WEIGHT
@@ -115,7 +115,7 @@ if __name__ == "__main__":
                 return torch.nn.functional.softmax(x, dim=1)
 
             value_loss = torch.pow(value_abs_diff, 2.5).mean()
-            policy_loss = ce_fn(softmax(pred_logits), softmax(target_logits))
+            policy_loss = ce_fn(softmax(pred_logits), softmax(target_logits_tensor))
 
             loss = value_loss * VALUE_LOSS_WEIGHT + policy_loss * POLICY_LOSS_WEIGHT
 

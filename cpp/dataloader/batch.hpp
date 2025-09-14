@@ -5,7 +5,7 @@
 #include "../utils.hpp"
 
 constexpr size_t MAX_PIECES_PER_POS = 32;
-constexpr size_t POLICY_OUTPUT_SIZE = 1882;
+constexpr size_t MAX_MOVES_PER_POS = 218;
 
 // A batch of N data entries (1 data entry = 1 position)
 struct Batch {
@@ -19,10 +19,8 @@ struct Batch {
     i16* stmScores;
     float* stmWDLs;
 
-    // [entryIdx][moveIdx] array, where moveIdx comes from move_mapping.hpp
-    // Illegal moves are set to a large negative number
-    // Legal logits are set to the visit distribution of that data entry
-    i16* logits;
+    size_t totalLegalMoves;
+    u32* legalMovesIdxsAndVisits;  // stores tuples (entryIdx, moveIdx, visits)
 
     constexpr Batch(const std::size_t batchSize) {
         this->activeFeaturesStm = new i16[batchSize * MAX_PIECES_PER_POS];
@@ -31,7 +29,8 @@ struct Batch {
         this->stmScores = new i16[batchSize];
         this->stmWDLs = new float[batchSize];
 
-        this->logits = new i16[batchSize * POLICY_OUTPUT_SIZE];
+        this->totalLegalMoves = 0;
+        this->legalMovesIdxsAndVisits = new u32[batchSize * MAX_MOVES_PER_POS * 3];
     }
 
 };  // struct Batch

@@ -82,8 +82,7 @@ constexpr void loadBatch(const size_t threadId) {
     std::fill(
         batch.activeFeaturesNtm, batch.activeFeaturesNtm + BATCH_SIZE * MAX_PIECES_PER_POS, -1);
 
-    // Initially, assume all logits in the batch are illegal and set them to large negative number
-    std::fill(batch.logits, batch.logits + BATCH_SIZE * POLICY_OUTPUT_SIZE, -10'000);
+    batch.totalLegalMoves = 0;
 
     for (size_t entryIdx = 0; entryIdx < BATCH_SIZE; entryIdx++) {
         StarwayDataEntry dataEntry;
@@ -153,15 +152,20 @@ constexpr void loadBatch(const size_t threadId) {
         batch.stmScores[entryIdx] = dataEntry.stmScore;
         batch.stmWDLs[entryIdx] = static_cast<float>(stmWdl) / 2.0f;
 
-        // In the batch, set the logits for this data entry
-        // Illegal moves stay at a large negative number
-        // while legal logits are set to their visits
         for (size_t i = 0; i < static_cast<size_t>(dataEntry.get(Mask::NUM_MOVES)); i++) {
             const auto [moveU16, visitsU8] = dataEntry.visits[i];
             const size_t moveIdx = mapMoveIdx(MontyformatMove(moveU16));
 
-            // Careful to not overwrite the logits of other data entries!
-            batch.logits[entryIdx * POLICY_OUTPUT_SIZE + moveIdx] = visitsU8;
+            // Store tuple (entryIdx, moveIdx, visits)
+
+            batch.legalMovesIdxsAndVisits[batch.totalLegalMoves * 3] = static_cast<u32>(entryIdx);
+
+            batch.legalMovesIdxsAndVisits[batch.totalLegalMoves * 3 + 1] =
+                static_cast<u32>(moveIdx);
+
+            batch.legalMovesIdxsAndVisits[batch.totalLegalMoves * 3 + 2] = visitsU8;
+
+            batch.totalLegalMoves++;
         }
     }
 }
