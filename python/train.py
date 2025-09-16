@@ -98,24 +98,23 @@ if __name__ == "__main__":
 
             optimizer.zero_grad(set_to_none=True)
 
-            target_logits_tensor = batch.get_target_logits_tensor()
+            (legal_moves_idxs_tensor, target_policy_tensor) = \
+                batch.get_legals_idxs_and_target_policy_tensors()
 
             pred_value, pred_logits = net.forward(
                 batch.get_features_tensor(True),
                 batch.get_features_tensor(False),
-                target_logits_tensor
+                legal_moves_idxs_tensor
             )
 
             expected_value = torch.sigmoid(batch.get_scores_tensor() / float(SCALE)) * SCORE_WEIGHT
             expected_value += batch.get_wdl_tensor() * WDL_WEIGHT
 
             value_abs_diff = torch.abs(torch.sigmoid(pred_value) - expected_value)
-
-            def softmax(x):
-                return torch.nn.functional.softmax(x, dim=1)
-
             value_loss = torch.pow(value_abs_diff, 2.5).mean()
-            policy_loss = ce_fn(softmax(pred_logits), softmax(target_logits_tensor))
+
+            pred_policy = torch.nn.functional.softmax(pred_logits, dim=1)
+            policy_loss = ce_fn(pred_policy, target_policy_tensor)
 
             loss = value_loss * VALUE_LOSS_WEIGHT + policy_loss * POLICY_LOSS_WEIGHT
 

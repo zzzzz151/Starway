@@ -16,8 +16,6 @@ INPUT_SIZE = 768 * 2
 HIDDEN_SIZE = 128 # The final hidden layer is twice as big
 POLICY_OUTPUT_SIZE = 1882
 
-ILLEGAL_LOGITS_VALUE = -10_000.0
-
 # 1 superbatch = 100 million positions
 # Total superbatches = END_SUPERBATCH - START_SUPERBATCH + 1
 START_SUPERBATCH = 1
@@ -48,7 +46,6 @@ assert NET_NAME != ""
 if CHECKPOINT_TO_LOAD: assert os.path.exists(CHECKPOINT_TO_LOAD)
 assert HIDDEN_SIZE > 0
 assert POLICY_OUTPUT_SIZE > 0
-assert ILLEGAL_LOGITS_VALUE < 0.0
 assert START_SUPERBATCH > 0
 if not CHECKPOINT_TO_LOAD: assert START_SUPERBATCH == 1
 assert END_SUPERBATCH > 0

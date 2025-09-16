@@ -25,10 +25,10 @@ class NetValuePolicy(torch.nn.Module):
             torch.nn.init.uniform_(self.hidden_to_out_policy.weight, -0.1, 0.1)
             torch.nn.init.uniform_(self.hidden_to_out_policy.bias, -0.1, 0.1)
 
-    def forward(self, stm_features_tensor, ntm_features_tensor, target_logits_tensor):
+    def forward(self, stm_features_tensor, ntm_features_tensor, legal_moves_idxs_tensor):
         assert stm_features_tensor.dtype == ntm_features_tensor.dtype
         assert len(stm_features_tensor.size()) == len(ntm_features_tensor.size())
-        assert target_logits_tensor.dtype == torch.float32
+        assert legal_moves_idxs_tensor.dtype == torch.bool
 
         # [BATCH_SIZE, HIDDEN_SIZE]
         hidden_stm = self.ft(stm_features_tensor)
@@ -51,7 +51,7 @@ class NetValuePolicy(torch.nn.Module):
 
         # [BATCH_SIZE, POLICY_OUTPUT_SIZE]
         pred_logits = self.hidden_to_out_policy(hidden_layer)
-        pred_logits[target_logits_tensor == ILLEGAL_LOGITS_VALUE] = ILLEGAL_LOGITS_VALUE
+        pred_logits[legal_moves_idxs_tensor == False] = -10_000
 
         # Return predicted value and logits
         return self.hidden_to_out_value(hidden_layer), pred_logits

@@ -20,7 +20,7 @@ struct Batch {
     float* stmWDLs;
 
     size_t totalLegalMoves;
-    u32* legalMovesIdxsAndVisits;  // stores tuples (entryIdx, moveIdx, visits)
+    float* legalMovesIdxsAndVisitsPercent;  // Stores tuples (entryIdx, moveIdx, visitsPercent)
 
     constexpr Batch(const std::size_t batchSize) {
         this->activeFeaturesStm = new i16[batchSize * MAX_PIECES_PER_POS];
@@ -30,7 +30,7 @@ struct Batch {
         this->stmWDLs = new float[batchSize];
 
         this->totalLegalMoves = 0;
-        this->legalMovesIdxsAndVisits = new u32[batchSize * MAX_MOVES_PER_POS * 3];
+        this->legalMovesIdxsAndVisitsPercent = new float[batchSize * MAX_MOVES_PER_POS * 3];
     }
 
 };  // struct Batch

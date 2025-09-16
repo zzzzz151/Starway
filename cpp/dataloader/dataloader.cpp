@@ -152,18 +152,25 @@ constexpr void loadBatch(const size_t threadId) {
         batch.stmScores[entryIdx] = dataEntry.stmScore;
         batch.stmWDLs[entryIdx] = static_cast<float>(stmWdl) / 2.0f;
 
+        u32 visitsSum = 0;
+        for (size_t i = 0; i < static_cast<size_t>(dataEntry.get(Mask::NUM_MOVES)); i++) {
+            visitsSum += dataEntry.visits[i].visits;
+        }
+
         for (size_t i = 0; i < static_cast<size_t>(dataEntry.get(Mask::NUM_MOVES)); i++) {
             const auto [moveU16, visitsU8] = dataEntry.visits[i];
             const size_t moveIdx = mapMoveIdx(MontyformatMove(moveU16));
 
-            // Store tuple (entryIdx, moveIdx, visits)
+            // Store tuple (entryIdx, moveIdx, visitsPercent)
 
-            batch.legalMovesIdxsAndVisits[batch.totalLegalMoves * 3] = static_cast<u32>(entryIdx);
+            batch.legalMovesIdxsAndVisitsPercent[batch.totalLegalMoves * 3] =
+                static_cast<float>(entryIdx);
 
-            batch.legalMovesIdxsAndVisits[batch.totalLegalMoves * 3 + 1] =
-                static_cast<u32>(moveIdx);
+            batch.legalMovesIdxsAndVisitsPercent[batch.totalLegalMoves * 3 + 1] =
+                static_cast<float>(moveIdx);
 
-            batch.legalMovesIdxsAndVisits[batch.totalLegalMoves * 3 + 2] = visitsU8;
+            batch.legalMovesIdxsAndVisitsPercent[batch.totalLegalMoves * 3 + 2] =
+                static_cast<float>(visitsU8) / static_cast<float>(visitsSum);
 
             batch.totalLegalMoves++;
         }
