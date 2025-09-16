@@ -113,13 +113,14 @@ if __name__ == "__main__":
             value_abs_diff = torch.abs(torch.sigmoid(pred_value) - expected_value)
             value_loss = torch.pow(value_abs_diff, 2.5).mean()
 
-            pred_policy = torch.nn.functional.softmax(pred_logits, dim=1)
-            policy_loss = ce_fn(pred_policy, target_policy_tensor)
+            #pred_policy = torch.nn.functional.softmax(pred_logits, dim=1)
+            policy_loss = ce_fn(pred_logits, target_policy_tensor)
 
             loss = value_loss * VALUE_LOSS_WEIGHT + policy_loss * POLICY_LOSS_WEIGHT
 
             sb_value_loss += value_loss.item()
             sb_policy_loss += policy_loss.item()
+
 
             loss.backward()
             optimizer.step()
