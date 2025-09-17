@@ -139,12 +139,10 @@ int main(int argc, char* argv[]) {
         chunk.ifstream.read(reinterpret_cast<char*>(&entry.stmScore), sizeof(entry.stmScore));
 
         // Some data entry validation
-        const size_t numPieces = static_cast<size_t>(std::popcount(entry.occupied));
-        const size_t numMoves = entry.get(Mask::NUM_MOVES);
-        assert(entry.get(Mask::OUR_KING_SQ_ORIENTED) < 64);
-        assert(entry.get(Mask::THEIR_KING_SQ_ORIENTED) < 64);
         assert(entry.get(Mask::EP_FILE) <= 8);
         assert(entry.get(Mask::WDL) <= 2);
+        const size_t numPieces = static_cast<size_t>(std::popcount(entry.occupied));
+        const size_t numMoves = entry.get(Mask::NUM_MOVES);
         assert(numPieces > 2 && numPieces <= 32);
         assert(numMoves > 0 && numMoves <= entry.visits.size());
 

@@ -84,6 +84,10 @@ constexpr void loadBatch(const size_t threadId) {
 
     batch.totalLegalMoves = 0;
 
+    const auto mirrorVAxis = [](const Square kingSq) -> bool {
+        return static_cast<i32>(fileOf(kingSq)) < static_cast<i32>(File::E);
+    };
+
     for (size_t entryIdx = 0; entryIdx < BATCH_SIZE; entryIdx++) {
         StarwayDataEntry dataEntry;
 
@@ -101,15 +105,16 @@ constexpr void loadBatch(const size_t threadId) {
 
         const bool inCheck = dataEntry.get(Mask::IN_CHECK);
 
-        const u8 ourKingSqOriented = static_cast<u8>(dataEntry.get(Mask::OUR_KING_SQ_ORIENTED));
-        const u8 theirKingSqOriented = static_cast<u8>(dataEntry.get(Mask::THEIR_KING_SQ_ORIENTED));
+        const Square ourKingSqOriented =
+            static_cast<Square>(dataEntry.get(Mask::OUR_KING_SQ_ORIENTED));
 
-        assert(ourKingSqOriented < 64 && theirKingSqOriented < 64);
+        const Square theirKingSqOriented =
+            static_cast<Square>(dataEntry.get(Mask::THEIR_KING_SQ_ORIENTED));
 
         // Flip ranks if black to move
         // Flip files if that color's king is on left side of board
-        const u8 stmXor = ourKingSqOriented % 8 <= 3 ? 7 : 0;
-        const u8 ntmXor = theirKingSqOriented % 8 <= 3 ? 56 ^ 7 : 56;
+        const u8 stmXor = mirrorVAxis(ourKingSqOriented) ? 7 : 0;
+        const u8 ntmXor = mirrorVAxis(theirKingSqOriented) ? 56 ^ 7 : 56;
 
         // Iterate pieces
         size_t piecesSeen = 0;
@@ -159,7 +164,12 @@ constexpr void loadBatch(const size_t threadId) {
 
         for (size_t i = 0; i < static_cast<size_t>(dataEntry.get(Mask::NUM_MOVES)); i++) {
             const auto [moveU16, visitsU8] = dataEntry.visits[i];
-            const size_t moveIdx = mapMoveIdx(MontyformatMove(moveU16));
+
+            const MontyformatMove moveOriented = mirrorVAxis(ourKingSqOriented)
+                                                     ? MontyformatMove(moveU16).filesFlipped()
+                                                     : MontyformatMove(moveU16);
+
+            const size_t moveIdx = mapMoveIdx(moveOriented);
 
             // Store tuple (entryIdx, moveIdx, visitsPercent)
 

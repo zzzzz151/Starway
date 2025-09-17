@@ -122,9 +122,11 @@ struct MontyformatMove {
             return *this;
         }
 
-        const Square newSrc = rankFlipped(getSrc());
-        const Square newDst = rankFlipped(getDst());
-        return MontyformatMove(newSrc, newDst, getFlag());
+        return MontyformatMove(rankFlipped(getSrc()), rankFlipped(getDst()), getFlag());
+    }
+
+    constexpr MontyformatMove filesFlipped() const {
+        return MontyformatMove(fileFlipped(getSrc()), fileFlipped(getDst()), getFlag());
     }
 
     constexpr void validate(const bool whiteToMove, const PieceType pt) const {
