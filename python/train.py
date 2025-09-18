@@ -91,7 +91,7 @@ if __name__ == "__main__":
         sb_policy_loss = 0.0
 
         for param_group in optimizer.param_groups:
-            print("LR for superbatch #{}:".format(superbatch_num), round(param_group['lr'], 5))
+            print("LR for superbatch #{}:".format(superbatch_num), round(param_group['lr'], 8))
 
         for batch_num in range(1, BATCHES_PER_SUPERBATCH + 1):
             batch = dataloader.nextBatch().contents
