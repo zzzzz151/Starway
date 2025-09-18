@@ -8,7 +8,7 @@ torch.backends.cudnn.fp32_precision = "ieee"
 DEVICE = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
 NET_NAME = "net"
-
+"
 # Set to a .pt file to resume training, else set to None
 CHECKPOINT_TO_LOAD = None
 
@@ -58,6 +58,6 @@ assert THREADS > 0
 assert LR > 0.0 and LR_DROP_INTERVAL > 0 and LR_MULTIPLIER > 0.0
 assert SCALE > 0
 assert WDL_WEIGHT >= 0.0 and WDL_WEIGHT <= 1.0
-assert VALUE_LOSS_WEIGHT > 0.0 and VALUE_LOSS_WEIGHT < 1.0
+assert VALUE_LOSS_WEIGHT >= 0.0 and VALUE_LOSS_WEIGHT <= 1.0
 assert FT_MAX_WEIGHT_BIAS > 0.0
 assert FT_Q > 0
