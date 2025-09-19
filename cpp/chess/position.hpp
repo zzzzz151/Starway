@@ -107,8 +107,17 @@ struct Position {
         }
     }
 
-    constexpr std::optional<PieceType> at(const Square sq) const {
-        return mMailbox[static_cast<size_t>(sq)];
+    constexpr std::optional<std::pair<Color, PieceType>> pieceAt(const Square sq) const {
+        const std::optional<PieceType> pt = mMailbox[static_cast<size_t>(sq)];
+        assert(bbContainsSq(getOcc(), sq) == pt.has_value());
+
+        if (!pt.has_value()) {
+            return std::nullopt;
+        }
+
+        const Color pieceColor = static_cast<Color>(bbContainsSq(getBb(Color::Black), sq));
+
+        return std::pair<Color, PieceType>{pieceColor, *pt};
     }
 
     constexpr u64 getBb(const Color color) const { return mColorBbs[static_cast<size_t>(color)]; }
@@ -324,7 +333,7 @@ struct Position {
         assert(bbContainsSq(getBb(mSideToMove), src));
         assert(!bbContainsSq(getBb(mSideToMove), dst));
 
-        const PieceType movingPt = at(src).value();
+        const PieceType movingPt = pieceAt(src).value().second;
 
         togglePiece(mSideToMove, movingPt, src);
 
@@ -354,13 +363,12 @@ struct Position {
             togglePiece(mSideToMove, PieceType::Pawn, dst);
         } else {
             const PieceType placedPt = promoPt.value_or(movingPt);
-            const std::optional<PieceType> victimPt = at(dst);
+            const std::optional<std::pair<Color, PieceType>> victim = pieceAt(dst);
 
             if (move.isCapture()) {
-                togglePiece(!mSideToMove, victimPt.value(), dst);
+                togglePiece(!mSideToMove, victim.value().second, dst);
             } else {
-                assert(!victimPt.has_value());
-                assert(!bbContainsSq(getOcc(), dst));
+                assert(!victim.has_value());
             }
 
             togglePiece(mSideToMove, placedPt, dst);
@@ -406,15 +414,16 @@ struct Position {
             for (i32 fileI32 = 0; fileI32 < 8; fileI32++) {
                 const File file = static_cast<File>(fileI32);
                 const Square sq = toSquare(file, rank);
-                const std::optional<PieceType> pt = at(sq);
+                const std::optional<std::pair<Color, PieceType>> piece = pieceAt(sq);
 
                 char pieceChar = '-';
 
-                if (bbContainsSq(getOcc(), sq)) {
-                    pieceChar = PIECE_CHARS[static_cast<size_t>(*pt)];
+                if (piece.has_value()) {
+                    const size_t idx = static_cast<size_t>((*piece).second);
+                    pieceChar = PIECE_CHARS[idx];
                 }
 
-                if (bbContainsSq(getBb(Color::Black, *pt), sq)) {
+                if (piece.has_value() && (*piece).first == Color::Black) {
                     pieceChar = static_cast<char>(std::tolower(pieceChar));
                 }
 
@@ -447,7 +456,8 @@ struct Position {
 
                 while (bb > 0) {
                     const Square sq = popLsb(bb);
-                    assert(at(sq).value() == pt);
+                    assert(pieceAt(sq).value().first == color);
+                    assert(pieceAt(sq).value().second == pt);
                 }
             }
         }

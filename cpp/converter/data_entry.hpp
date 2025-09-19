@@ -90,12 +90,11 @@ struct StarwayDataEntry {
         assert(stmWdl <= 2);
         assert(numMoves > 0 && static_cast<size_t>(numMoves) <= visits.size());
 
-        Square ourKingSqOriented = maybeRankFlipped(pos.getKingSq(Color::White), pos.mSideToMove);
-        Square theirKingSqOriented = maybeRankFlipped(pos.getKingSq(Color::Black), pos.mSideToMove);
+        const Square ourKingSqOriented =
+            maybeRankFlipped(pos.getKingSq(pos.mSideToMove), pos.mSideToMove);
 
-        if (pos.mSideToMove == Color::Black) {
-            std::swap(ourKingSqOriented, theirKingSqOriented);
-        }
+        const Square theirKingSqOriented =
+            maybeRankFlipped(pos.getKingSq(!pos.mSideToMove), pos.mSideToMove);
 
         set(Mask::STM, static_cast<u32>(pos.mSideToMove));
         set(Mask::IN_CHECK, pos.getCheckers() > 0);
@@ -120,20 +119,30 @@ struct StarwayDataEntry {
         this->occupied = 0;
         this->pieces = 0;
 
-        // Black bitboard, flipped vertically if black to move
-        const u64 blackBbOriented = pos.mSideToMove == Color::White
-                                        ? pos.getBb(Color::Black)
-                                        : __builtin_bswap64(pos.getBb(Color::Black));
-
         // Occupancy, flipped vertically if black to move
         u64 occOriented =
             pos.mSideToMove == Color::White ? pos.getOcc() : __builtin_bswap64(pos.getOcc());
 
         while (occOriented > 0) {
             const Square sq = popLsb(occOriented);
-            const PieceType pt = pos.at(maybeRankFlipped(sq, pos.mSideToMove)).value();
-            const Color pieceColor = static_cast<Color>(bbContainsSq(blackBbOriented, sq));
-            const u128 fourBitsPiece = static_cast<u128>(pieceColor) | (static_cast<u128>(pt) << 1);
+
+            auto [pieceColor, pieceType] =
+                pos.pieceAt(maybeRankFlipped(sq, pos.mSideToMove)).value();
+
+            if (pos.mSideToMove == Color::Black) {
+                pieceColor = !pieceColor;
+            }
+
+            if (pieceType == PieceType::King) {
+                const Mask mask = pieceColor == Color::White ? Mask::OUR_KING_SQ_ORIENTED
+                                                             : Mask::THEIR_KING_SQ_ORIENTED;
+
+                assert(sq == static_cast<Square>(get(mask)));
+            }
+
+            const u128 fourBitsPiece =
+                static_cast<u128>(pieceColor) | (static_cast<u128>(pieceType) << 1);
+
             this->pieces |= fourBitsPiece << (std::popcount(this->occupied) * 4);
             this->occupied |= sqToBb(sq);
         }

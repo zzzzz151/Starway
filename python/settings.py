@@ -8,7 +8,7 @@ torch.backends.cudnn.fp32_precision = "ieee"
 DEVICE = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 
 NET_NAME = "net"
-"
+
 # Set to a .pt file to resume training, else set to None
 CHECKPOINT_TO_LOAD = None
 

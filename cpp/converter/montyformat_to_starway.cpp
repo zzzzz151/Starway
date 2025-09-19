@@ -28,7 +28,7 @@ Usage:
 
 constexpr u16 MIN_FULLMOVE_COUNTER = 9;
 constexpr u8 MAX_HALFMOVE_CLOCK = 89;
-constexpr i16 MAX_SCORE_CP = 8000;
+constexpr i16 MAX_SCORE_CP = 10'000;
 
 // Returns number of entries written
 constexpr size_t shuffleWriteClearBuffer(std::vector<StarwayDataEntry>& buffer,
@@ -74,7 +74,7 @@ constexpr size_t shuffleWriteClearBuffer(std::vector<StarwayDataEntry>& buffer,
 
 // https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#score
 constexpr i16 mfScoreToCentipawns(const u16 mfScore) {
-    const double wdl =
+    double wdl =
         static_cast<double>(mfScore) / static_cast<double>(std::numeric_limits<u16>::max());
 
     if (wdl <= 0.0) {
@@ -85,9 +85,11 @@ constexpr i16 mfScoreToCentipawns(const u16 mfScore) {
         return 32767;
     }
 
-    const double unsigmoided = std::log(wdl / (1.0 - wdl)) * 400.0;
-    const i32 cp = static_cast<i32>(round(unsigmoided));
-    return static_cast<i16>(std::clamp<i32>(cp, -32767, 32767));
+    wdl *= 2.0;
+    wdl -= 1.0;
+
+    const i64 centipawns = llround(660.6 * wdl / (1 - 0.9751875 * std::pow(wdl, 10)));
+    return static_cast<i16>(std::clamp<i64>(centipawns, -32767, 32767));
 }
 
 int main(int argc, char* argv[]) {
@@ -192,7 +194,7 @@ int main(int argc, char* argv[]) {
             }
 
             // Validate move
-            const PieceType ptMoving = pos.at(mfBestMove.getSrc()).value();
+            const PieceType ptMoving = pos.pieceAt(mfBestMove.getSrc()).value().second;
             mfBestMove.validate(pos.mSideToMove == Color::White, ptMoving);
             assert(mapMoveIdx(mfBestMove.maybeRanksFlipped(pos.mSideToMove)) >= 0);
 

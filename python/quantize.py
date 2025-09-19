@@ -159,7 +159,7 @@ if __name__ == "__main__":
 
         pred_value = pred_value[0]
         pred_logits = pred_logits[0]
-        pred_policy = torch.nn.functional.softmax(pred_logits, dtype=pred_logits.dtype)
+        pred_policy = torch.nn.functional.softmax(pred_logits, dtype=pred_logits.dtype, dim=0)
 
         legal_moves_policy = []
         for move in board.legal_moves:

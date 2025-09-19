@@ -189,7 +189,7 @@ int main(int argc, char* argv[]) {
                               static_cast<i64>(batchOffsets.size() * sizeof(size_t)));
 
     std::cout << "\nFinished";
-    std::cout << "Data entries written: ";
+    std::cout << "\nData entries written: ";
     std::cout << (batchOffsets.size() * batchSize);
     std::cout << std::endl;
 
