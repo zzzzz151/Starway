@@ -155,7 +155,9 @@ constexpr void loadBatch(const size_t threadId) {
         const u8 stmWdl = static_cast<u8>(dataEntry.get(Mask::WDL));
         assert(stmWdl <= 2);
 
-        batch.stmScores[entryIdx] = dataEntry.mStmScore;
+        batch.stmScoresSigmoided[entryIdx] = static_cast<float>(dataEntry.mStmScore) /
+                                             static_cast<float>(std::numeric_limits<u16>::max());
+
         batch.stmWDLs[entryIdx] = static_cast<float>(stmWdl) / 2.0f;
 
         u32 visitsSum = 0;

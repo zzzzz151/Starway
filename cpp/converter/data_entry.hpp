@@ -61,7 +61,7 @@ struct StarwayDataEntry {
     // Other 3 bits is piece type (0-5 including both)
     u128 mPieces;
 
-    i16 mStmScore;
+    u16 mStmScore;  // Divide by u16 max to get stm score sigmoided
 
     // The number of filled MoveAndVisits elements is the number of legal moves
     // The u16 move is oriented (flipped vertically if black to move)

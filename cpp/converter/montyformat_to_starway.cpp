@@ -26,9 +26,15 @@ Usage:
 #include "compressed_board.hpp"
 #include "data_entry.hpp"
 
+// Data filtering
 constexpr u16 MIN_FULLMOVE_COUNTER = 9;
 constexpr u8 MAX_HALFMOVE_CLOCK = 89;
-constexpr i16 MAX_SCORE_CP = 10'000;
+constexpr double MIN_SCORE_SIGMOIDED = 0.01;
+constexpr double MAX_SCORE_SIGMOIDED = 1.0 - MIN_SCORE_SIGMOIDED;
+
+static_assert(MIN_SCORE_SIGMOIDED > 0.0 && MIN_SCORE_SIGMOIDED < 1.0);
+static_assert(MAX_SCORE_SIGMOIDED > 0.0 && MAX_SCORE_SIGMOIDED < 1.0);
+static_assert(MIN_SCORE_SIGMOIDED < MAX_SCORE_SIGMOIDED);
 
 // Returns number of entries written
 constexpr size_t shuffleWriteClearBuffer(std::vector<StarwayDataEntry>& buffer,
@@ -71,26 +77,6 @@ constexpr size_t shuffleWriteClearBuffer(std::vector<StarwayDataEntry>& buffer,
     const size_t bufferSize = buffer.size();
     buffer.clear();
     return bufferSize;
-}
-
-// https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#score
-constexpr i16 mfScoreToCentipawns(const u16 mfScore) {
-    double wdl =
-        static_cast<double>(mfScore) / static_cast<double>(std::numeric_limits<u16>::max());
-
-    if (wdl <= 0.0) {
-        return -32767;
-    }
-
-    if (wdl >= 1.0) {
-        return 32767;
-    }
-
-    wdl *= 2.0;
-    wdl -= 1.0;
-
-    const i64 centipawns = llround(660.6 * wdl / (1 - 0.9751875 * std::pow(wdl, 10)));
-    return static_cast<i16>(std::clamp<i64>(centipawns, -32767, 32767));
 }
 
 int main(int argc, char* argv[]) {
@@ -208,13 +194,15 @@ int main(int argc, char* argv[]) {
             assert(mfFile);
             assert(mfMovesCount > 0 && mfMovesCount <= 218);
 
-            const i16 stmScoreCp = mfScoreToCentipawns(mfScore);
+            const double stmScoreSigmoided =
+                static_cast<double>(mfScore) / static_cast<double>(std::numeric_limits<u16>::max());
 
             // Data filtering
             bool skip = pos.isInsufficientMaterial();
             skip |= pos.getFullMoveCounter() < MIN_FULLMOVE_COUNTER;
             skip |= pos.getHalfMoveClock() > MAX_HALFMOVE_CLOCK;
-            skip |= std::abs(stmScoreCp) > MAX_SCORE_CP;
+            skip |= stmScoreSigmoided < MIN_SCORE_SIGMOIDED;
+            skip |= stmScoreSigmoided > MAX_SCORE_SIGMOIDED;
 
             if (skip) {
                 // Skip visits distribution
@@ -233,7 +221,7 @@ int main(int argc, char* argv[]) {
 
             dataEntry.setMiscData(pos, getStmWdl(), mfMovesCount);
             dataEntry.setOccAndPieces(pos);
-            dataEntry.mStmScore = stmScoreCp;
+            dataEntry.mStmScore = mfScore;
 
             dataEntry.validate();
 

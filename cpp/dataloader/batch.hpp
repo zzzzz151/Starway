@@ -16,7 +16,7 @@ struct Batch {
     i16* activeFeaturesNtm;
 
     // [entryIdx] arrays
-    i16* stmScores;
+    float* stmScoresSigmoided;
     float* stmWDLs;
 
     size_t totalLegalMoves;
@@ -26,7 +26,7 @@ struct Batch {
         this->activeFeaturesStm = new i16[batchSize * MAX_PIECES_PER_POS];
         this->activeFeaturesNtm = new i16[batchSize * MAX_PIECES_PER_POS];
 
-        this->stmScores = new i16[batchSize];
+        this->stmScoresSigmoided = new float[batchSize];
         this->stmWDLs = new float[batchSize];
 
         this->totalLegalMoves = 0;

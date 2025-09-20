@@ -9,7 +9,7 @@ class Batch(ctypes.Structure):
     _fields_ = [
         ('active_features_stm', ctypes.POINTER(ctypes.c_int16)),
         ('active_features_ntm', ctypes.POINTER(ctypes.c_int16)),
-        ('stm_scores', ctypes.POINTER(ctypes.c_int16)),
+        ('stm_scores_sigmoided', ctypes.POINTER(ctypes.c_float)),
         ('stm_WDLs', ctypes.POINTER(ctypes.c_float)),
         ('total_legal_moves', ctypes.c_size_t),
         ('legal_moves_idxs_and_visits_percent', ctypes.POINTER(ctypes.c_float)),
@@ -20,11 +20,11 @@ class Batch(ctypes.Structure):
         arr = np.ctypeslib.as_array(field, shape=(BATCH_SIZE, MAX_PIECES_PER_POS))
         return torch.from_numpy(arr).to(DEVICE, dtype=torch.int32)
 
-    def get_scores_tensor(self):
-        arr = np.ctypeslib.as_array(self.stm_scores, shape=(BATCH_SIZE, 1))
+    def get_stm_scores_sigmoided_tensor(self):
+        arr = np.ctypeslib.as_array(self.stm_scores_sigmoided, shape=(BATCH_SIZE, 1))
         return torch.from_numpy(arr).to(DEVICE, dtype=torch.float32)
 
-    def get_wdl_tensor(self):
+    def get_stm_wdl_tensor(self):
         arr = np.ctypeslib.as_array(self.stm_WDLs, shape=(BATCH_SIZE, 1))
         return torch.from_numpy(arr).to(DEVICE, dtype=torch.float32)
 

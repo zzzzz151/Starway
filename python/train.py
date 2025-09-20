@@ -107,8 +107,8 @@ if __name__ == "__main__":
                 legal_moves_idxs_tensor
             )
 
-            expected_value = torch.sigmoid(batch.get_scores_tensor() / float(SCALE)) * SCORE_WEIGHT
-            expected_value += batch.get_wdl_tensor() * WDL_WEIGHT
+            expected_value = batch.get_stm_scores_sigmoided_tensor() * SCORE_WEIGHT
+            expected_value += batch.get_stm_wdl_tensor() * WDL_WEIGHT
 
             value_abs_diff = torch.abs(torch.sigmoid(pred_value) - expected_value)
             value_loss = torch.pow(value_abs_diff, 2.5).mean()
