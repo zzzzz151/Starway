@@ -69,6 +69,39 @@ struct StarwayDataEntry {
 
     constexpr StarwayDataEntry() {}  // Does not init fields
 
+    // Note: for the mVisits array, we only read the filled elements (number of legal moves)
+    constexpr StarwayDataEntry(std::ifstream& ifstream) {
+        assert(ifstream);
+
+        ifstream.read(reinterpret_cast<char*>(this),
+                      sizeof(mMiscData) + sizeof(mOccupied) + sizeof(mPieces) + sizeof(mStmScore));
+
+        assert(ifstream);
+
+        const size_t numMoves = get(Mask::NUM_MOVES);
+        assert(numMoves > 0 && numMoves <= mVisits.size());
+
+        ifstream.read(reinterpret_cast<char*>(&(this->mVisits)),
+                      static_cast<i64>(numMoves * sizeof(MoveAndVisits)));
+
+        assert(ifstream);
+    }
+
+    // Note: for the mVisits array, we only write the filled elements (number of legal moves)
+    constexpr void writeToOut(std::ofstream& ofstream) const {
+        assert(ofstream);
+
+        const size_t numMoves = get(Mask::NUM_MOVES);
+        assert(numMoves > 0 && numMoves <= mVisits.size());
+
+        const size_t bytesUnused = (mVisits.size() - numMoves) * sizeof(MoveAndVisits);
+
+        ofstream.write(reinterpret_cast<const char*>(this),
+                       static_cast<i64>(sizeof(StarwayDataEntry) - bytesUnused));
+
+        assert(ofstream);
+    }
+
     // Get some field from misc data
     constexpr u32 get(const Mask mask) const {
         const u32 maskU32 = static_cast<u32>(mask);
@@ -116,6 +149,7 @@ struct StarwayDataEntry {
         set(Mask::NUM_MOVES, numMoves);
     }
 
+    // Calculate and set mOccupied and mPieces
     constexpr void setOccAndPieces(const Position& pos) {
         mOccupied = 0;
         mPieces = 0;
@@ -147,14 +181,6 @@ struct StarwayDataEntry {
             mPieces |= fourBitsPiece << (std::popcount(mOccupied) * 4);
             mOccupied |= sqToBb(sq);
         }
-    }
-
-    // How many bytes should be occupied by the filled elements of the mVisits member field?
-    constexpr size_t visitsBytesCount() const {
-        const size_t numMoves = get(Mask::NUM_MOVES);
-        assert(numMoves > 0 && numMoves <= mVisits.size());
-
-        return numMoves * sizeof(MoveAndVisits);
     }
 
     constexpr void validate() const {

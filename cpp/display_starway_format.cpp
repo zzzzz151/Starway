@@ -32,24 +32,9 @@ int main(int argc, char* argv[]) {
     size_t numRead = 0;
     StarwayDataEntry entry;
 
+    // Read from input data file to StarwayDataEntry object until desired entry
     while (numRead < dataEntryNum) {
-        // clang-format off
-
-        dataFile.read(
-            reinterpret_cast<char*>(&entry),
-            sizeof(entry.mMiscData) +
-            sizeof(entry.mOccupied) +
-            sizeof(entry.mPieces) +
-            sizeof(entry.mStmScore)
-        );
-
-        // clang-format on
-
-        dataFile.read(reinterpret_cast<char*>(&entry.mVisits),
-                      static_cast<i64>(entry.visitsBytesCount()));
-
-        assert(dataFile);
-
+        entry = StarwayDataEntry(dataFile);
         numRead++;
     }
 

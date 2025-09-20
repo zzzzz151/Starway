@@ -132,20 +132,8 @@ int main(int argc, char* argv[]) {
         ShuffledChunkOfBatches& chunk = chunks[chunkIdx];
 
         // Read from this ifstream of the input data file to StarwayDataEntry object
-        StarwayDataEntry entry;
-        chunk.ifstream.read(reinterpret_cast<char*>(&entry.mMiscData), sizeof(entry.mMiscData));
-        chunk.ifstream.read(reinterpret_cast<char*>(&entry.mOccupied), sizeof(entry.mOccupied));
-        chunk.ifstream.read(reinterpret_cast<char*>(&entry.mPieces), sizeof(entry.mPieces));
-        chunk.ifstream.read(reinterpret_cast<char*>(&entry.mStmScore), sizeof(entry.mStmScore));
-        assert(chunk.ifstream);
-
+        StarwayDataEntry entry = StarwayDataEntry(chunk.ifstream);
         entry.validate();
-
-        // For the visits array, we only read the filled elements (number of legal moves)
-        chunk.ifstream.read(reinterpret_cast<char*>(&entry.mVisits),
-                            static_cast<i64>(entry.visitsBytesCount()));
-
-        assert(chunk.ifstream);
 
         // If starting to write a new batch, save the batch offset
         if (dataEntriesLeft % batchSize == 0) {
@@ -156,14 +144,7 @@ int main(int argc, char* argv[]) {
         }
 
         // Write data entry to output data file
-        outDataFile.write(reinterpret_cast<const char*>(&entry.mMiscData), sizeof(entry.mMiscData));
-        outDataFile.write(reinterpret_cast<const char*>(&entry.mOccupied), sizeof(entry.mOccupied));
-        outDataFile.write(reinterpret_cast<const char*>(&entry.mPieces), sizeof(entry.mPieces));
-        outDataFile.write(reinterpret_cast<const char*>(&entry.mStmScore), sizeof(entry.mStmScore));
-
-        // For the visits array, we only write the filled elements (number of legal moves)
-        outDataFile.write(reinterpret_cast<const char*>(&entry.mVisits),
-                          static_cast<i64>(entry.visitsBytesCount()));
+        entry.writeToOut(outDataFile);
 
         chunk.numDataEntries--;
         dataEntriesLeft--;

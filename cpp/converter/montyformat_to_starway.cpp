@@ -63,14 +63,7 @@ constexpr size_t shuffleWriteClearBuffer(std::vector<StarwayDataEntry>& buffer,
         }
 
         // Write data entry to output data file
-        outDataFile.write(reinterpret_cast<const char*>(&entry.mMiscData), sizeof(entry.mMiscData));
-        outDataFile.write(reinterpret_cast<const char*>(&entry.mOccupied), sizeof(entry.mOccupied));
-        outDataFile.write(reinterpret_cast<const char*>(&entry.mPieces), sizeof(entry.mPieces));
-        outDataFile.write(reinterpret_cast<const char*>(&entry.mStmScore), sizeof(entry.mStmScore));
-
-        // For the visits array, we only write the filled elements (number of legal moves)
-        outDataFile.write(reinterpret_cast<const char*>(&entry.mVisits),
-                          static_cast<i64>(entry.visitsBytesCount()));
+        entry.writeToOut(outDataFile);
     }
 
     // clear() does not change vector's capacity

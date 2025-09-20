@@ -89,20 +89,9 @@ constexpr void loadBatch(const size_t threadId) {
     };
 
     for (size_t entryIdx = 0; entryIdx < BATCH_SIZE; entryIdx++) {
-        StarwayDataEntry dataEntry;
-
-        // Read data entry
-        dataFile.read(reinterpret_cast<char*>(&dataEntry),
-                      sizeof(u32) + sizeof(u64) + sizeof(u128) + sizeof(i16));
-
-        assert(dataFile);
+        // Read from data file to StarwayDataEntry object
+        StarwayDataEntry dataEntry = StarwayDataEntry(dataFile);
         dataEntry.validate();
-
-        // Read visits distribution of this entry
-        dataFile.read(reinterpret_cast<char*>(&dataEntry.mVisits),
-                      static_cast<i64>(dataEntry.visitsBytesCount()));
-
-        assert(dataFile);
 
         const bool inCheck = dataEntry.get(Mask::IN_CHECK);
 
