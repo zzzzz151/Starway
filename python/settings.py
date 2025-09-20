@@ -1,9 +1,9 @@
 import os
 import torch
 
-torch.backends.fp32_precision = "ieee"
-torch.backends.cuda.matmul.fp32_precision = "ieee"
-torch.backends.cudnn.fp32_precision = "ieee"
+torch.backends.fp32_precision = "tf32"
+torch.backends.cuda.matmul.fp32_precision = "tf32"
+torch.backends.cudnn.fp32_precision = "tf32"
 
 DEVICE = torch.device("cuda:0") if torch.cuda.is_available() else torch.device("cpu")
 

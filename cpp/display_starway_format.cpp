@@ -1,5 +1,6 @@
 #include <fstream>
 #include <iostream>
+#include <limits>
 
 #include "chess/types.hpp"
 #include "chess/util.hpp"
@@ -42,12 +43,16 @@ int main(int argc, char* argv[]) {
 
     const Color stm = static_cast<Color>(entry.get(Mask::STM));
     const bool inCheck = entry.get(Mask::IN_CHECK);
+
+    const double stmScoreSigmoided =
+        static_cast<double>(entry.mStmScore) / static_cast<double>(std::numeric_limits<u16>::max());
+
     const float stmWdl = static_cast<float>(entry.get(Mask::WDL)) / 2.0f;
 
     std::cout << "Num pieces: " << std::popcount(entry.mOccupied) << std::endl;
     std::cout << "Side to move: " << (stm == Color::White ? "White" : "Black") << std::endl;
     std::cout << "In check: " << std::boolalpha << inCheck << std::noboolalpha << std::endl;
     std::cout << "Legal moves: " << entry.get(Mask::NUM_MOVES) << std::endl;
-    std::cout << "Stm score cp: " << entry.mStmScore << std::endl;
+    std::cout << "Stm score sigmoided: " << stmScoreSigmoided << std::endl;
     std::cout << "Stm WDL: " << stmWdl << std::endl;
 }

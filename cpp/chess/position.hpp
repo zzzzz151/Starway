@@ -395,8 +395,9 @@ struct Position {
 
         setHalfMoveClock(movingPt != PieceType::Pawn && !move.isCapture() ? 0 : mHalfMoveClock + 1);
 
-        if (mSideToMove == Color::White)
+        if (mSideToMove == Color::White) {
             setFullMoveCounter(mFullMoveCounter + 1);
+        }
     }
 
     constexpr void display() const {
