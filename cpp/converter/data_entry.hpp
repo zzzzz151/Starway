@@ -65,7 +65,7 @@ struct StarwayDataEntry {
 
     // The number of filled MoveAndVisits elements is the number of legal moves
     // The u16 move is oriented (flipped vertically if black to move)
-    std::array<MoveAndmVisits, 218> mVisits;
+    std::array<MoveAndVisits, 218> mVisits;
 
     constexpr StarwayDataEntry() {}  // Does not init fields
 
@@ -150,11 +150,20 @@ struct StarwayDataEntry {
     }
 
     // How many bytes should be occupied by the filled elements of the mVisits member field?
-    constexpr std::streamsize visitsBytesCount() const {
-        const std::streamsize elemSize = static_cast<std::streamsize>(sizeof(MoveAndmVisits));
-        const std::streamsize numMoves = get(Mask::NUM_MOVES);
-        assert(numMoves > 0 && static_cast<size_t>(numMoves) <= mVisits.size());
-        return elemSize * numMoves;
+    constexpr size_t visitsBytesCount() const {
+        const size_t numMoves = get(Mask::NUM_MOVES);
+        assert(numMoves > 0 && numMoves <= mVisits.size());
+
+        return numMoves * sizeof(MoveAndVisits);
+    }
+
+    constexpr void validate() const {
+        assert(get(Mask::EP_FILE) <= 8);
+        assert(get(Mask::WDL) <= 2);
+        assert(get(Mask::NUM_MOVES) > 0 && get(Mask::NUM_MOVES) <= mVisits.size());
+        assert(std::popcount(mOccupied) > 2 && std::popcount(mOccupied) <= 32);
+        assert(bbContainsSq(mOccupied, static_cast<Square>(get(Mask::OUR_KING_SQ_ORIENTED))));
+        assert(bbContainsSq(mOccupied, static_cast<Square>(get(Mask::THEIR_KING_SQ_ORIENTED))));
     }
 
 } __attribute__((packed));  // struct StarwayDataEntry

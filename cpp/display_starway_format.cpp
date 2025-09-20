@@ -45,12 +45,15 @@ int main(int argc, char* argv[]) {
 
         // clang-format on
 
-        dataFile.read(reinterpret_cast<char*>(&entry.mVisits), entry.visitsBytesCount());
+        dataFile.read(reinterpret_cast<char*>(&entry.mVisits),
+                      static_cast<i64>(entry.visitsBytesCount()));
 
         assert(dataFile);
 
         numRead++;
     }
+
+    entry.validate();
 
     const Color stm = static_cast<Color>(entry.get(Mask::STM));
     const bool inCheck = entry.get(Mask::IN_CHECK);

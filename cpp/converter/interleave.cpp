@@ -137,17 +137,13 @@ int main(int argc, char* argv[]) {
         chunk.ifstream.read(reinterpret_cast<char*>(&entry.mOccupied), sizeof(entry.mOccupied));
         chunk.ifstream.read(reinterpret_cast<char*>(&entry.mPieces), sizeof(entry.mPieces));
         chunk.ifstream.read(reinterpret_cast<char*>(&entry.mStmScore), sizeof(entry.mStmScore));
+        assert(chunk.ifstream);
 
-        // Some data entry validation
-        assert(entry.get(Mask::EP_FILE) <= 8);
-        assert(entry.get(Mask::WDL) <= 2);
-        const size_t numPieces = static_cast<size_t>(std::popcount(entry.mOccupied));
-        const size_t numMoves = entry.get(Mask::NUM_MOVES);
-        assert(numPieces > 2 && numPieces <= 32);
-        assert(numMoves > 0 && numMoves <= entry.mVisits.size());
+        entry.validate();
 
         // For the visits array, we only read the filled elements (number of legal moves)
-        chunk.ifstream.read(reinterpret_cast<char*>(&entry.mVisits), entry.visitsBytesCount());
+        chunk.ifstream.read(reinterpret_cast<char*>(&entry.mVisits),
+                            static_cast<i64>(entry.visitsBytesCount()));
 
         assert(chunk.ifstream);
 
@@ -166,7 +162,8 @@ int main(int argc, char* argv[]) {
         outDataFile.write(reinterpret_cast<const char*>(&entry.mStmScore), sizeof(entry.mStmScore));
 
         // For the visits array, we only write the filled elements (number of legal moves)
-        outDataFile.write(reinterpret_cast<const char*>(&entry.mVisits), entry.visitsBytesCount());
+        outDataFile.write(reinterpret_cast<const char*>(&entry.mVisits),
+                          static_cast<i64>(entry.visitsBytesCount()));
 
         chunk.numDataEntries--;
         dataEntriesLeft--;

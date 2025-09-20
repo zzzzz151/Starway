@@ -96,12 +96,13 @@ constexpr void loadBatch(const size_t threadId) {
                       sizeof(u32) + sizeof(u64) + sizeof(u128) + sizeof(i16));
 
         assert(dataFile);
+        dataEntry.validate();
 
         // Read visits distribution of this entry
-        dataFile.read(reinterpret_cast<char*>(&dataEntry.mVisits), dataEntry.visitsBytesCount());
-        assert(dataFile);
+        dataFile.read(reinterpret_cast<char*>(&dataEntry.mVisits),
+                      static_cast<i64>(dataEntry.visitsBytesCount()));
 
-        assert(std::popcount(dataEntry.mOccupied) > 2 && std::popcount(dataEntry.mOccupied) <= 32);
+        assert(dataFile);
 
         const bool inCheck = dataEntry.get(Mask::IN_CHECK);
 

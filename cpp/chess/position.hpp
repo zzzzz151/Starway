@@ -393,16 +393,8 @@ struct Position {
             mEpSquare = std::nullopt;
         }
 
-        if (movingPt != PieceType::Pawn && !move.isCapture()) {
-            mHalfMoveClock = 0;
-        } else {
-            mHalfMoveClock++;
-            assert(mHalfMoveClock <= 100);
-        }
-
-        if (mSideToMove == Color::White) {
-            mFullMoveCounter++;
-        }
+        setHalfMoveClock(movingPt != PieceType::Pawn && !move.isCapture() ? 0 : mHalfMoveClock + 1);
+        setFullMoveCounter(mFullMoveCounter + 1);
     }
 
     constexpr void display() const {
@@ -456,8 +448,9 @@ struct Position {
 
                 while (bb > 0) {
                     const Square sq = popLsb(bb);
-                    assert(pieceAt(sq).value().first == color);
-                    assert(pieceAt(sq).value().second == pt);
+
+                    const std::pair<Color, PieceType> piece = pieceAt(sq).value();
+                    assert(piece.first == color && piece.second == pt);
                 }
             }
         }
