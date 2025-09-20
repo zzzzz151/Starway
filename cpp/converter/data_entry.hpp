@@ -56,7 +56,7 @@ struct StarwayDataEntry {
 
     u64 mOccupied;  // Oriented (flipped vertically if black to move)
 
-    // 4 bits per oriented piece for a max of 32 oriented mPieces
+    // 4 bits per oriented piece for a max of 32 oriented pieces
     // Lsb of the 4 bits is set if the color of the oriented piece is black
     // Other 3 bits is piece type (0-5 including both)
     u128 mPieces;
