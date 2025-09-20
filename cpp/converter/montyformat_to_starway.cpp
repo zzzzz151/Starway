@@ -57,13 +57,13 @@ constexpr size_t shuffleWriteClearBuffer(std::vector<StarwayDataEntry>& buffer,
         }
 
         // Write data entry to output data file
-        outDataFile.write(reinterpret_cast<const char*>(&entry.miscData), sizeof(entry.miscData));
-        outDataFile.write(reinterpret_cast<const char*>(&entry.occupied), sizeof(entry.occupied));
-        outDataFile.write(reinterpret_cast<const char*>(&entry.pieces), sizeof(entry.pieces));
-        outDataFile.write(reinterpret_cast<const char*>(&entry.stmScore), sizeof(entry.stmScore));
+        outDataFile.write(reinterpret_cast<const char*>(&entry.mMiscData), sizeof(entry.mMiscData));
+        outDataFile.write(reinterpret_cast<const char*>(&entry.mOccupied), sizeof(entry.mOccupied));
+        outDataFile.write(reinterpret_cast<const char*>(&entry.mPieces), sizeof(entry.mPieces));
+        outDataFile.write(reinterpret_cast<const char*>(&entry.mStmScore), sizeof(entry.mStmScore));
 
         // For the visits array, we only write the filled elements (number of legal moves)
-        outDataFile.write(reinterpret_cast<const char*>(&entry.visits), entry.visitsBytesCount());
+        outDataFile.write(reinterpret_cast<const char*>(&entry.mVisits), entry.visitsBytesCount());
     }
 
     // clear() does not change vector's capacity
@@ -232,7 +232,7 @@ int main(int argc, char* argv[]) {
 
             dataEntry.setMiscData(pos, getStmWdl(), mfMovesCount);
             dataEntry.setOccAndPieces(pos);
-            dataEntry.stmScore = stmScoreCp;
+            dataEntry.mStmScore = stmScoreCp;
 
             auto legalMoves = getLegalMoves(pos);
             assert(static_cast<size_t>(mfMovesCount) == legalMoves.size());
@@ -256,7 +256,7 @@ int main(int argc, char* argv[]) {
                 const MontyformatMove moveOriented =
                     legalMoves[i].maybeRanksFlipped(pos.mSideToMove);
 
-                dataEntry.visits[i] = MoveAndVisits{.move = moveOriented.asU16(), .visits = visits};
+                dataEntry.mVisits[i] = {.move = moveOriented.asU16(), .visits = visits};
 
                 highestVisits = std::max<u8>(visits, highestVisits);
             }

@@ -9,7 +9,7 @@
 #include "../chess/util.hpp"
 #include "../utils.hpp"
 
-// Masks for StarwayDataEntry.miscData
+// Masks for StarwayDataEntry.mMiscData
 // "x-y" includes both x-th and y-th bits
 enum class Mask : u32 {
     // 1st lowest bit: set if black to move
@@ -52,43 +52,44 @@ struct MoveAndVisits {
 
 struct StarwayDataEntry {
    public:
-    u32 miscData;  // See Mask enum for the encoding
+    u32 mMiscData;  // See Mask enum for the encoding
 
-    u64 occupied;  // Oriented (flipped vertically if black to move)
+    u64 mOccupied;  // Oriented (flipped vertically if black to move)
 
-    // 4 bits per oriented piece for a max of 32 oriented pieces
+    // 4 bits per oriented piece for a max of 32 oriented mPieces
     // Lsb of the 4 bits is set if the color of the oriented piece is black
     // Other 3 bits is piece type (0-5 including both)
-    u128 pieces;
+    u128 mPieces;
 
-    i16 stmScore;
+    i16 mStmScore;
 
     // The number of filled MoveAndVisits elements is the number of legal moves
     // The u16 move is oriented (flipped vertically if black to move)
-    std::array<MoveAndVisits, 218> visits;
+    std::array<MoveAndmVisits, 218> mVisits;
 
     constexpr StarwayDataEntry() {}  // Does not init fields
 
     // Get some field from misc data
     constexpr u32 get(const Mask mask) const {
         const u32 maskU32 = static_cast<u32>(mask);
-        return (this->miscData & maskU32) >> std::countr_zero(maskU32);
+        return (mMiscData & maskU32) >> std::countr_zero(maskU32);
     }
 
     // Set some field in misc data
     constexpr void set(const Mask mask, const u32 value) {
         const u32 maskU32 = static_cast<u32>(mask);
         assert(value <= (maskU32 >> std::countr_zero(maskU32)));
-        this->miscData &= ~maskU32;
-        this->miscData |= value << std::countr_zero(maskU32);
+
+        mMiscData &= ~maskU32;
+        mMiscData |= value << std::countr_zero(maskU32);
     }
 
-    // Calculate and set this->miscData
+    // Calculate and set mMiscData
     constexpr void setMiscData(const Position& pos, const u8 stmWdl, const u8 numMoves) {
-        this->miscData = 0;
+        mMiscData = 0;
 
         assert(stmWdl <= 2);
-        assert(numMoves > 0 && static_cast<size_t>(numMoves) <= visits.size());
+        assert(numMoves > 0 && static_cast<size_t>(numMoves) <= mVisits.size());
 
         const Square ourKingSqOriented =
             maybeRankFlipped(pos.getKingSq(pos.mSideToMove), pos.mSideToMove);
@@ -116,8 +117,8 @@ struct StarwayDataEntry {
     }
 
     constexpr void setOccAndPieces(const Position& pos) {
-        this->occupied = 0;
-        this->pieces = 0;
+        mOccupied = 0;
+        mPieces = 0;
 
         // Occupancy, flipped vertically if black to move
         u64 occOriented =
@@ -143,16 +144,16 @@ struct StarwayDataEntry {
             const u128 fourBitsPiece =
                 static_cast<u128>(pieceColor) | (static_cast<u128>(pieceType) << 1);
 
-            this->pieces |= fourBitsPiece << (std::popcount(this->occupied) * 4);
-            this->occupied |= sqToBb(sq);
+            mPieces |= fourBitsPiece << (std::popcount(mOccupied) * 4);
+            mOccupied |= sqToBb(sq);
         }
     }
 
-    // How many bytes should be occupied by the filled elements of the visits member field?
+    // How many bytes should be occupied by the filled elements of the mVisits member field?
     constexpr std::streamsize visitsBytesCount() const {
-        const std::streamsize elemSize = static_cast<std::streamsize>(sizeof(MoveAndVisits));
+        const std::streamsize elemSize = static_cast<std::streamsize>(sizeof(MoveAndmVisits));
         const std::streamsize numMoves = get(Mask::NUM_MOVES);
-        assert(numMoves > 0 && static_cast<size_t>(numMoves) <= visits.size());
+        assert(numMoves > 0 && static_cast<size_t>(numMoves) <= mVisits.size());
         return elemSize * numMoves;
     }
 

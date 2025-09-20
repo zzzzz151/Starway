@@ -133,21 +133,21 @@ int main(int argc, char* argv[]) {
 
         // Read from this ifstream of the input data file to StarwayDataEntry object
         StarwayDataEntry entry;
-        chunk.ifstream.read(reinterpret_cast<char*>(&entry.miscData), sizeof(entry.miscData));
-        chunk.ifstream.read(reinterpret_cast<char*>(&entry.occupied), sizeof(entry.occupied));
-        chunk.ifstream.read(reinterpret_cast<char*>(&entry.pieces), sizeof(entry.pieces));
-        chunk.ifstream.read(reinterpret_cast<char*>(&entry.stmScore), sizeof(entry.stmScore));
+        chunk.ifstream.read(reinterpret_cast<char*>(&entry.mMiscData), sizeof(entry.mMiscData));
+        chunk.ifstream.read(reinterpret_cast<char*>(&entry.mOccupied), sizeof(entry.mOccupied));
+        chunk.ifstream.read(reinterpret_cast<char*>(&entry.mPieces), sizeof(entry.mPieces));
+        chunk.ifstream.read(reinterpret_cast<char*>(&entry.mStmScore), sizeof(entry.mStmScore));
 
         // Some data entry validation
         assert(entry.get(Mask::EP_FILE) <= 8);
         assert(entry.get(Mask::WDL) <= 2);
-        const size_t numPieces = static_cast<size_t>(std::popcount(entry.occupied));
+        const size_t numPieces = static_cast<size_t>(std::popcount(entry.mOccupied));
         const size_t numMoves = entry.get(Mask::NUM_MOVES);
         assert(numPieces > 2 && numPieces <= 32);
-        assert(numMoves > 0 && numMoves <= entry.visits.size());
+        assert(numMoves > 0 && numMoves <= entry.mVisits.size());
 
         // For the visits array, we only read the filled elements (number of legal moves)
-        chunk.ifstream.read(reinterpret_cast<char*>(&entry.visits), entry.visitsBytesCount());
+        chunk.ifstream.read(reinterpret_cast<char*>(&entry.mVisits), entry.visitsBytesCount());
 
         assert(chunk.ifstream);
 
@@ -160,13 +160,13 @@ int main(int argc, char* argv[]) {
         }
 
         // Write data entry to output data file
-        outDataFile.write(reinterpret_cast<const char*>(&entry.miscData), sizeof(entry.miscData));
-        outDataFile.write(reinterpret_cast<const char*>(&entry.occupied), sizeof(entry.occupied));
-        outDataFile.write(reinterpret_cast<const char*>(&entry.pieces), sizeof(entry.pieces));
-        outDataFile.write(reinterpret_cast<const char*>(&entry.stmScore), sizeof(entry.stmScore));
+        outDataFile.write(reinterpret_cast<const char*>(&entry.mMiscData), sizeof(entry.mMiscData));
+        outDataFile.write(reinterpret_cast<const char*>(&entry.mOccupied), sizeof(entry.mOccupied));
+        outDataFile.write(reinterpret_cast<const char*>(&entry.mPieces), sizeof(entry.mPieces));
+        outDataFile.write(reinterpret_cast<const char*>(&entry.mStmScore), sizeof(entry.mStmScore));
 
         // For the visits array, we only write the filled elements (number of legal moves)
-        outDataFile.write(reinterpret_cast<const char*>(&entry.visits), entry.visitsBytesCount());
+        outDataFile.write(reinterpret_cast<const char*>(&entry.mVisits), entry.visitsBytesCount());
 
         chunk.numDataEntries--;
         dataEntriesLeft--;

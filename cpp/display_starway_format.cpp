@@ -37,15 +37,15 @@ int main(int argc, char* argv[]) {
 
         dataFile.read(
             reinterpret_cast<char*>(&entry),
-            sizeof(entry.miscData) +
-            sizeof(entry.occupied) +
-            sizeof(entry.pieces) +
-            sizeof(entry.stmScore)
+            sizeof(entry.mMiscData) +
+            sizeof(entry.mOccupied) +
+            sizeof(entry.mPieces) +
+            sizeof(entry.mStmScore)
         );
 
         // clang-format on
 
-        dataFile.read(reinterpret_cast<char*>(&entry.visits), entry.visitsBytesCount());
+        dataFile.read(reinterpret_cast<char*>(&entry.mVisits), entry.visitsBytesCount());
 
         assert(dataFile);
 
@@ -56,10 +56,10 @@ int main(int argc, char* argv[]) {
     const bool inCheck = entry.get(Mask::IN_CHECK);
     const float stmWdl = static_cast<float>(entry.get(Mask::WDL)) / 2.0f;
 
-    std::cout << "Num pieces: " << std::popcount(entry.occupied) << std::endl;
+    std::cout << "Num pieces: " << std::popcount(entry.mOccupied) << std::endl;
     std::cout << "Side to move: " << (stm == Color::White ? "White" : "Black") << std::endl;
     std::cout << "In check: " << std::boolalpha << inCheck << std::noboolalpha << std::endl;
     std::cout << "Legal moves: " << entry.get(Mask::NUM_MOVES) << std::endl;
-    std::cout << "Stm score cp: " << entry.stmScore << std::endl;
+    std::cout << "Stm score cp: " << entry.mStmScore << std::endl;
     std::cout << "Stm WDL: " << stmWdl << std::endl;
 }

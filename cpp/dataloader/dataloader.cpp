@@ -98,10 +98,10 @@ constexpr void loadBatch(const size_t threadId) {
         assert(dataFile);
 
         // Read visits distribution of this entry
-        dataFile.read(reinterpret_cast<char*>(&dataEntry.visits), dataEntry.visitsBytesCount());
+        dataFile.read(reinterpret_cast<char*>(&dataEntry.mVisits), dataEntry.visitsBytesCount());
         assert(dataFile);
 
-        assert(std::popcount(dataEntry.occupied) > 2 && std::popcount(dataEntry.occupied) <= 32);
+        assert(std::popcount(dataEntry.mOccupied) > 2 && std::popcount(dataEntry.mOccupied) <= 32);
 
         const bool inCheck = dataEntry.get(Mask::IN_CHECK);
 
@@ -118,10 +118,10 @@ constexpr void loadBatch(const size_t threadId) {
 
         // Iterate pieces
         size_t piecesSeen = 0;
-        while (dataEntry.occupied > 0) {
-            const Square sq = popLsb(dataEntry.occupied);
-            const u8 pieceColor = dataEntry.pieces & 0b1;
-            const u8 pieceType = (dataEntry.pieces & 0b1110) >> 1;
+        while (dataEntry.mOccupied > 0) {
+            const Square sq = popLsb(dataEntry.mOccupied);
+            const u8 pieceColor = dataEntry.mPieces & 0b1;
+            const u8 pieceType = (dataEntry.mPieces & 0b1110) >> 1;
             assert(pieceType <= static_cast<u8>(PieceType::King));
 
             // Index of this feature in the batch's array
@@ -145,7 +145,7 @@ constexpr void loadBatch(const size_t threadId) {
 
             // clang-format on
 
-            dataEntry.pieces >>= 4;  // Get the next 4 bits piece ready
+            dataEntry.mPieces >>= 4;  // Get the next 4 bits piece ready
             piecesSeen++;
         }
 
@@ -154,16 +154,16 @@ constexpr void loadBatch(const size_t threadId) {
         const u8 stmWdl = static_cast<u8>(dataEntry.get(Mask::WDL));
         assert(stmWdl <= 2);
 
-        batch.stmScores[entryIdx] = dataEntry.stmScore;
+        batch.stmScores[entryIdx] = dataEntry.mStmScore;
         batch.stmWDLs[entryIdx] = static_cast<float>(stmWdl) / 2.0f;
 
         u32 visitsSum = 0;
         for (size_t i = 0; i < static_cast<size_t>(dataEntry.get(Mask::NUM_MOVES)); i++) {
-            visitsSum += dataEntry.visits[i].visits;
+            visitsSum += dataEntry.mVisits[i].visits;
         }
 
         for (size_t i = 0; i < static_cast<size_t>(dataEntry.get(Mask::NUM_MOVES)); i++) {
-            const auto [moveU16, visitsU8] = dataEntry.visits[i];
+            const auto [moveU16, visitsU8] = dataEntry.mVisits[i];
 
             const MontyformatMove moveOriented = mirrorVAxis(ourKingSqOriented)
                                                      ? MontyformatMove(moveU16).filesFlipped()
