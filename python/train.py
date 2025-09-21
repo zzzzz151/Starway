@@ -33,7 +33,6 @@ if __name__ == "__main__":
     print("LR: start {} multiply by {} every {} superbatches"
         .format(LR, LR_MULTIPLIER, LR_DROP_INTERVAL))
 
-    print("Value scale:", SCALE)
     print("WDL weight for value head:", WDL_WEIGHT)
     print("FT params clipping: [{}, {}]".format(-FT_MAX_WEIGHT_BIAS, FT_MAX_WEIGHT_BIAS))
 

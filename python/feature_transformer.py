@@ -5,6 +5,8 @@ from torch import autograd
 import cupy as cp
 import math
 
+torch._dynamo.allow_in_graph(cp.RawKernel)
+
 def _find_nearest_divisor(value, target):
     divisors = []
     for i in range(1, value+1):
