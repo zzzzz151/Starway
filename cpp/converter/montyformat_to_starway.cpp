@@ -15,6 +15,7 @@ Usage:
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <print>
 #include <random>
 #include <vector>
 
@@ -74,42 +75,43 @@ constexpr size_t shuffleWriteClearBuffer(std::vector<StarwayDataEntry>& buffer,
 
 int main(int argc, char* argv[]) {
     if (argc < 7) {
-        std::cerr << "Usage: ";
-        std::cerr << argv[0];
-        std::cerr << " <montyformat input file>";
-        std::cerr << " <output data file>";
-        std::cerr << " <max RAM usage in MB>";
-        std::cerr << " <batch offsets output file>";
-        std::cerr << " <batch size>";
-        std::cerr << " <batches to output>";
-        std::cerr << std::endl;
+        std::println(std::cerr,
+                     "Usage: {} {} {} {} {} {} {}",
+                     argv[0],
+                     "<montyformat input file>",
+                     "<output data file>",
+                     "<max RAM usage in MB>",
+                     "<batch offsets output file>",
+                     "<batch size>",
+                     "<batches to output>");
+
         return 1;
     }
 
     // Read program args
-    const std::string mfFileName = argv[1];
-    const std::string outDataFileName = argv[2];
+    const std::string mfFilePath = argv[1];
+    const std::string outDataFilePath = argv[2];
     const size_t maxRamMB = std::stoull(argv[3]);
-    const std::string batchOffsetsOutFileName = argv[4];
+    const std::string batchOffsetsOutFilePath = argv[4];
     const size_t batchSize = std::stoull(argv[5]);
     const size_t targetNumBatches = std::stoull(argv[6]);
 
     // Print program args
-    std::cout << "Input data file: " << mfFileName << std::endl;
-    std::cout << "Output data file: " << outDataFileName << std::endl;
-    std::cout << "Max RAM usage in MB: " << maxRamMB << std::endl;
-    std::cout << "Batch offsets output file: " << batchOffsetsOutFileName << std::endl;
-    std::cout << "Batch size: " << batchSize << " data entries" << std::endl;
-    std::cout << "Batches to output: " << targetNumBatches << std::endl;
+    std::println("Input data file: {}", mfFilePath);
+    std::println("Output data file: {}", outDataFilePath);
+    std::println("Max RAM usage in MB: {}", maxRamMB);
+    std::println("Batch offsets output file: {}", batchOffsetsOutFilePath);
+    std::println("Batch size: {} data entries", batchSize);
+    std::println("Batches to output: {}", targetNumBatches);
 
     assert(maxRamMB > 0);
     assert(batchSize > 0);
     assert(targetNumBatches > 0);
 
     // Open files
-    std::ifstream mfFile(mfFileName, std::ios::binary);
-    std::ofstream outDataFile(outDataFileName, std::ios::binary);
-    std::ofstream batchOffsetsOutFile(batchOffsetsOutFileName, std::ios::binary);
+    std::ifstream mfFile(mfFilePath, std::ios::binary);
+    std::ofstream outDataFile(outDataFilePath, std::ios::binary);
+    std::ofstream batchOffsetsOutFile(batchOffsetsOutFilePath, std::ios::binary);
 
     assert(mfFile);
     assert(outDataFile);
@@ -119,7 +121,7 @@ int main(int argc, char* argv[]) {
     size_t bufferCapacity = maxRamMB * 1000 * 1000 / sizeof(StarwayDataEntry);
     bufferCapacity -= bufferCapacity % batchSize;
 
-    std::cout << "Buffer capacity: " << bufferCapacity << " data entries" << std::endl;
+    std::println("Buffer capacity: {} data entries", bufferCapacity);
     assert(bufferCapacity >= batchSize);
 
     std::vector<StarwayDataEntry> buffer;
@@ -257,10 +259,10 @@ int main(int argc, char* argv[]) {
 
                 // Log conversion progress once in a while
                 const size_t batchesWritten = entriesWritten / batchSize;
-                std::cout << "\nCurrently on game #" << gameNum << std::endl;
-                std::cout << "Total batches written: " << batchesWritten << std::endl;
-                std::cout << "Total data entries written: " << entriesWritten << std::endl;
-                std::cout << "Total data entries skipped: " << entriesSkipped << std::endl;
+                std::println("\nCurrently on game #{}", gameNum);
+                std::println("Total batches written: {}", batchesWritten);
+                std::println("Total data entries written: {}", entriesWritten);
+                std::println("Total data entries skipped: {}", entriesSkipped);
             }
 
             pos.makeMove(mfBestMove);
@@ -273,22 +275,21 @@ int main(int argc, char* argv[]) {
     assert(entriesWritten % batchSize == 0);
 
     const size_t batchesWritten = entriesWritten / batchSize;
-    std::cout << "\nParsed " << gameNum << " games" << std::endl;
-    std::cout << "Total batches written: " << batchesWritten << std::endl;
-    std::cout << "Total data entries written: " << entriesWritten << std::endl;
-    std::cout << "Total data entries skipped: " << entriesSkipped << std::endl;
+    std::println("\nParsed {} games", gameNum);
+    std::println("Total batches written: {}", batchesWritten);
+    std::println("Total data entries written: {}", entriesWritten);
+    std::println("Total data entries skipped: {}", entriesSkipped);
 
     assert(static_cast<size_t>(batchOffsetsOutFile.tellp()) / sizeof(size_t) == batchesWritten);
 
     // Print interleave command
-    std::cout << "\nRun ./interleave";
-    std::cout << " " << outDataFileName;
-    std::cout << " interleaved_" << outDataFileName;
-    std::cout << " " << bufferCapacity;
-    std::cout << " " << batchOffsetsOutFileName;
-    std::cout << " interleaved_" << batchOffsetsOutFileName;
-    std::cout << " " << batchSize;
-    std::cout << std::endl;
+    std::println("\nRun ./interleave {} {} {} {} {} {}",
+                 outDataFilePath,
+                 "interleaved_" + outDataFilePath,
+                 bufferCapacity,
+                 batchOffsetsOutFilePath,
+                 "interleaved_" + batchOffsetsOutFilePath,
+                 batchSize);
 
     return 0;
 }

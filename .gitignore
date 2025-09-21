@@ -2,6 +2,8 @@
 __pycache__/
 checkpoints/
 
+cpp/test.cpp
+
 **/*.exe
 **/*.dll
 **/*.lib
@@ -13,6 +15,7 @@ checkpoints/
 **/*.sw
 **/*.starway
 
+**/cpp_test
 cpp/chess/test
 **/montyformat_to_starway
 **/interleave

@@ -3,6 +3,7 @@
 #include <bit>
 #include <cassert>
 #include <iostream>
+#include <print>
 #include <string>
 
 #include "../utils.hpp"
@@ -41,7 +42,7 @@ constexpr Square toSquare(std::string s) {
     trim(s);
 
     if (s.size() != 2) {
-        std::cerr << "Square '" << s << "'" << " must be exactly 2 chars" << std::endl;
+        std::println(std::cerr, "Square '{}' must be exactly 2 chars", s);
         exit(1);
     }
 

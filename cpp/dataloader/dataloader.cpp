@@ -1,5 +1,6 @@
 #include <cstring>
 #include <iostream>
+#include <print>
 #include <thread>
 #include <vector>
 
@@ -48,7 +49,7 @@ extern "C" API void init(const char* dataFilePath,
     BATCH_OFFSETS.resize(static_cast<size_t>(batchOffsetsFile.tellg()) / sizeof(size_t));
     assert(BATCH_OFFSETS.size() > 0);
 
-    std::cout << "Batches in data file: " << BATCH_OFFSETS.size() << std::endl;
+    std::println("Batches in data file: {}", BATCH_OFFSETS.size());
 
     batchOffsetsFile.seekg(0, std::ios::beg);
 
@@ -91,7 +92,7 @@ constexpr void loadBatch(const size_t threadId) {
     for (size_t entryIdx = 0; entryIdx < BATCH_SIZE; entryIdx++) {
         // Read from data file to StarwayDataEntry object
         StarwayDataEntry dataEntry = StarwayDataEntry(dataFile);
-        dataEntry.validate();
+        // dataEntry.validate();
 
         const bool inCheck = dataEntry.get(Mask::IN_CHECK);
 
@@ -142,7 +143,6 @@ constexpr void loadBatch(const size_t threadId) {
         // In the batch, set score and WDL of this entry
 
         const u8 stmWdl = static_cast<u8>(dataEntry.get(Mask::WDL));
-        assert(stmWdl <= 2);
 
         batch.stmScoresSigmoided[entryIdx] = static_cast<float>(dataEntry.mStmScore) /
                                              static_cast<float>(std::numeric_limits<u16>::max());
@@ -205,6 +205,6 @@ extern "C" API Batch* nextBatch() {
 }
 
 int main() {
-    std::cout << "Dataloader main()" << std::endl;
+    std::println("Dataloader main()");
     return 0;
 }

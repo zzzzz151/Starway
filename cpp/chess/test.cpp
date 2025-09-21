@@ -1,4 +1,5 @@
 #include <cassert>
+#include <print>
 
 #include "../utils.hpp"
 #include "perft.hpp"
@@ -54,6 +55,6 @@ int main() {
     // Kiwipete perft(5)
     assert(perft(pos2Kiwipete, 5) == 193690690ULL);
 
-    std::cout << "Passed!" << std::endl;
+    std::println("Passed!");
     return 0;
 }

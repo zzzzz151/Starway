@@ -3,6 +3,7 @@
 #include <cassert>
 #include <iostream>
 #include <optional>
+#include <print>
 #include <string>
 
 #include "../utils.hpp"
@@ -42,7 +43,7 @@ struct Position {
         std::vector<std::string> fenSplit = split(fen, ' ');
 
         if (fenSplit.size() < 4) {
-            std::cerr << "Invalid fen '" << fen << "'" << std::endl;
+            std::println(std::cerr, "Invalid fen '{}'", fen);
             exit(1);
         }
 
@@ -398,44 +399,6 @@ struct Position {
         if (mSideToMove == Color::White) {
             setFullMoveCounter(mFullMoveCounter + 1);
         }
-    }
-
-    constexpr void display() const {
-        constexpr std::array<char, 6> PIECE_CHARS = {'P', 'N', 'B', 'R', 'Q', 'K'};
-
-        for (i32 rankI32 = 7; rankI32 >= 0; rankI32--) {
-            const Rank rank = static_cast<Rank>(rankI32);
-
-            for (i32 fileI32 = 0; fileI32 < 8; fileI32++) {
-                const File file = static_cast<File>(fileI32);
-                const Square sq = toSquare(file, rank);
-                const std::optional<std::pair<Color, PieceType>> piece = pieceAt(sq);
-
-                char pieceChar = '-';
-
-                if (piece.has_value()) {
-                    const size_t idx = static_cast<size_t>((*piece).second);
-                    pieceChar = PIECE_CHARS[idx];
-                }
-
-                if (piece.has_value() && (*piece).first == Color::Black) {
-                    pieceChar = static_cast<char>(std::tolower(pieceChar));
-                }
-
-                if (file != File::A) {
-                    std::cout << " ";
-                }
-
-                std::cout << std::string() + pieceChar;
-            }
-
-            std::cout << "\n";
-        }
-
-        std::cout << "Side to move: " << (mSideToMove == Color::White ? "White" : "Black") << "\n";
-        std::cout << "Halfmove clock: " << std::to_string(mHalfMoveClock) << "\n";
-
-        std::cout << std::flush;
     }
 
     constexpr void validate() const {

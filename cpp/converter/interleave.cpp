@@ -1,8 +1,8 @@
 /*
 Usage:
 ./interleave
-    <input Starway data file>
-    <output Starway data file>
+    <input data file in Starway format>
+    <output data file in Starway format>
     <converter's buffer capacity>
     <batch offsets input file>
     <batch offsets output file>
@@ -12,6 +12,7 @@ Usage:
 #include <cassert>
 #include <cmath>
 #include <fstream>
+#include <print>
 #include <random>
 
 #include "../chess/types.hpp"
@@ -28,43 +29,44 @@ struct ShuffledChunkOfBatches {
 
 int main(int argc, char* argv[]) {
     if (argc < 7) {
-        std::cerr << "Usage: ";
-        std::cerr << argv[0];
-        std::cerr << " <input Starway data file>";
-        std::cerr << " <output Starway data file>";
-        std::cerr << " <converter's buffer capacity>";
-        std::cerr << " <batch offsets input file>";
-        std::cerr << " <batch offsets output file>";
-        std::cerr << " <batch size>";
-        std::cerr << std::endl;
+        std::println(std::cerr,
+                     "Usage: {} {} {} {} {} {} {}",
+                     argv[0],
+                     "<input data file in Starway format>",
+                     "<output data file in Starway format>",
+                     "<converter's buffer capacity>",
+                     "<batch offsets input file>",
+                     "<batch offsets output file>",
+                     "<batch size>");
+
         return 1;
     }
 
     // Read program args
-    const std::string inputDataFileName = argv[1];
-    const std::string outDataFileName = argv[2];
+    const std::string inputDataFilePath = argv[1];
+    const std::string outDataFilePath = argv[2];
     const size_t bufferCapacity = std::stoull(argv[3]);
-    const std::string batchOffsetsInputFileName = argv[4];
-    const std::string batchOffsetsOutFileName = argv[5];
+    const std::string batchOffsetsInputFilePath = argv[4];
+    const std::string batchOffsetsOutFilePath = argv[5];
     const size_t batchSize = std::stoull(argv[6]);
 
     // Print program args
-    std::cout << "Input data file: " << inputDataFileName << std::endl;
-    std::cout << "Output data file: " << outDataFileName << std::endl;
-    std::cout << "Converter's buffer capacity: " << bufferCapacity << " data entries" << std::endl;
-    std::cout << "Batch offsets input file: " << batchOffsetsInputFileName << std::endl;
-    std::cout << "Batch offsets output file: " << batchOffsetsOutFileName << std::endl;
-    std::cout << "Batch size: " << batchSize << " data entries" << std::endl;
+    std::println("Input data file: {}", inputDataFilePath);
+    std::println("Output data file: {}", outDataFilePath);
+    std::println("Converter's buffer capacity: {} data entries", bufferCapacity);
+    std::println("Batch offsets input file: {}", batchOffsetsInputFilePath);
+    std::println("Batch offsets output file: {}", batchOffsetsOutFilePath);
+    std::println("Batch size: {} data entries", batchSize);
 
     assert(bufferCapacity > 0);
     assert(batchSize > 0);
     assert(bufferCapacity % batchSize == 0);
 
     // Open files
-    std::ifstream inputDataFile(inputDataFileName, std::ios::binary);
-    std::ofstream outDataFile(outDataFileName, std::ios::binary);
-    std::ifstream batchOffsetsInputFile(batchOffsetsInputFileName, std::ios::binary);
-    std::ofstream batchOffsetsOutFile(batchOffsetsOutFileName, std::ios::binary);
+    std::ifstream inputDataFile(inputDataFilePath, std::ios::binary);
+    std::ofstream outDataFile(outDataFilePath, std::ios::binary);
+    std::ifstream batchOffsetsInputFile(batchOffsetsInputFilePath, std::ios::binary);
+    std::ofstream batchOffsetsOutFile(batchOffsetsOutFilePath, std::ios::binary);
 
     assert(inputDataFile);
     assert(outDataFile);
@@ -83,7 +85,7 @@ int main(int argc, char* argv[]) {
 
     assert(batchOffsetsInputFile);
 
-    std::cout << "Batches: " << batchOffsets.size() << "\n" << std::endl;
+    std::println("Batches: {}", batchOffsets.size());
     assert(batchOffsets.size() > 0);
 
     std::vector<ShuffledChunkOfBatches> chunks;
@@ -100,7 +102,7 @@ int main(int argc, char* argv[]) {
     for (size_t i = 0; i < chunks.size(); i++) {
         ShuffledChunkOfBatches& chunk = chunks[i];
 
-        chunk.ifstream = std::ifstream(inputDataFileName, std::ios::binary);
+        chunk.ifstream = std::ifstream(inputDataFilePath, std::ios::binary);
         assert(chunk.ifstream);
 
         const size_t offset = batchOffsets[bufferCapacity / batchSize * i];
@@ -156,9 +158,8 @@ int main(int argc, char* argv[]) {
 
         // Log progress once in a while
         if (dataEntriesLeft % 16'777'216 == 0) {
-            std::cout << "Data entries written: ";
-            std::cout << (batchOffsets.size() * batchSize - dataEntriesLeft);
-            std::cout << std::endl;
+            std::println("Data entries written: {}",
+                         batchOffsets.size() * batchSize - dataEntriesLeft);
         }
     }
 
@@ -166,10 +167,8 @@ int main(int argc, char* argv[]) {
     batchOffsetsOutFile.write(reinterpret_cast<const char*>(batchOffsets.data()),
                               static_cast<i64>(batchOffsets.size() * sizeof(size_t)));
 
-    std::cout << "\nFinished";
-    std::cout << "\nData entries written: ";
-    std::cout << (batchOffsets.size() * batchSize);
-    std::cout << std::endl;
+    std::println("Finished; wrote {} data entries",
+                 batchOffsets.size() * batchSize - dataEntriesLeft);
 
     // Assert input and output data files have same size
     inputDataFile.seekg(0, std::ios::end);
