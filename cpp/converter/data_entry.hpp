@@ -8,6 +8,7 @@
 #include "../chess/types.hpp"
 #include "../chess/util.hpp"
 #include "../utils.hpp"
+#include "data_filter.hpp"
 
 // Masks for StarwayDataEntry.mMiscData
 // "x-y" includes both x-th and y-th bits
@@ -33,8 +34,8 @@ enum class Mask : u32 {
     // 17-20: en passant file (8 if none)
     EP_FILE = 0b1111u << 16,
 
-    // 21-22: WDL (0 if stm lost, 1 if draw, 2 if stm won)
-    WDL = 0b11u << 20,
+    // 21-22: Game result (0 if stm lost, 1 if draw, 2 if stm won)
+    STM_RESULT = 0b11u << 20,
 
     // 23-30: number of legal moves
     NUM_MOVES = 0b1111'1111u << 22
@@ -65,7 +66,7 @@ struct StarwayDataEntry {
 
     // The number of filled MoveAndVisits elements is the number of legal moves
     // The u16 move is oriented (flipped vertically if black to move)
-    std::array<MoveAndVisits, 218> mVisits;
+    std::array<MoveAndVisits, MAX_LEGAL_MOVES_FILTER> mVisits;
 
     constexpr StarwayDataEntry() {}  // Does not init fields
 
@@ -118,10 +119,10 @@ struct StarwayDataEntry {
     }
 
     // Calculate and set mMiscData
-    constexpr void setMiscData(const Position& pos, const u8 stmWdl, const u8 numMoves) {
+    constexpr void setMiscData(const Position& pos, const u8 stmResult, const u8 numMoves) {
         mMiscData = 0;
 
-        assert(stmWdl <= 2);
+        assert(stmResult <= 2);
         assert(numMoves > 0 && static_cast<size_t>(numMoves) <= mVisits.size());
 
         const Square ourKingSqOriented =
@@ -145,7 +146,7 @@ struct StarwayDataEntry {
             set(Mask::EP_FILE, 8);
         }
 
-        set(Mask::WDL, stmWdl);
+        set(Mask::STM_RESULT, stmResult);
         set(Mask::NUM_MOVES, numMoves);
     }
 
@@ -185,7 +186,7 @@ struct StarwayDataEntry {
 
     constexpr void validate() const {
         assert(get(Mask::EP_FILE) <= 8);
-        assert(get(Mask::WDL) <= 2);
+        assert(get(Mask::STM_RESULT) <= 2);
         assert(get(Mask::NUM_MOVES) > 0 && get(Mask::NUM_MOVES) <= mVisits.size());
         assert(std::popcount(mOccupied) > 2 && std::popcount(mOccupied) <= 32);
         assert(bbContainsSq(mOccupied, static_cast<Square>(get(Mask::OUR_KING_SQ_ORIENTED))));

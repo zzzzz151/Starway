@@ -52,7 +52,7 @@ if __name__ == "__main__":
         write_bin(net.hidden_to_out_value.bias, np.float32)
 
         # Write policy head weights and biases
-        for i in range(1882):
+        for i in range(POLICY_OUTPUT_SIZE):
             write_bin(net.hidden_to_out_policy.weight[i][:mid], np.float32)
             write_bin(net.hidden_to_out_policy.weight[i][mid:], np.float32)
         write_bin(net.hidden_to_out_policy.bias, np.float32)

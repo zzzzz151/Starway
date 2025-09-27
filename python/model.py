@@ -1,5 +1,5 @@
 from settings import *
-from feature_transformer import FeatureTransformerSlice
+from feature_transformer import FeatureTransformer
 import torch
 
 class NetValuePolicy(torch.nn.Module):
@@ -7,7 +7,7 @@ class NetValuePolicy(torch.nn.Module):
         super().__init__()
 
         # Features transformer (input layer -> hidden layer)
-        self.ft = FeatureTransformerSlice(INPUT_SIZE, HIDDEN_SIZE)
+        self.ft = FeatureTransformer(INPUT_SIZE, HIDDEN_SIZE)
 
         # Hidden layer -> output layer
         self.hidden_to_out_value = torch.nn.Linear(HIDDEN_SIZE, 1)

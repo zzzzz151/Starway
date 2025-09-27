@@ -26,16 +26,7 @@ Usage:
 #include "../utils.hpp"
 #include "compressed_board.hpp"
 #include "data_entry.hpp"
-
-// Data filtering
-constexpr u16 MIN_FULLMOVE_COUNTER = 9;
-constexpr u8 MAX_HALFMOVE_CLOCK = 89;
-constexpr double MIN_SCORE_SIGMOIDED = 0.01;
-constexpr double MAX_SCORE_SIGMOIDED = 1.0 - MIN_SCORE_SIGMOIDED;
-
-static_assert(MIN_SCORE_SIGMOIDED > 0.0 && MIN_SCORE_SIGMOIDED < 1.0);
-static_assert(MAX_SCORE_SIGMOIDED > 0.0 && MAX_SCORE_SIGMOIDED < 1.0);
-static_assert(MIN_SCORE_SIGMOIDED < MAX_SCORE_SIGMOIDED);
+#include "data_filter.hpp"
 
 // Returns number of entries written
 constexpr size_t shuffleWriteClearBuffer(std::vector<StarwayDataEntry>& buffer,
@@ -127,9 +118,19 @@ int main(int argc, char* argv[]) {
     std::vector<StarwayDataEntry> buffer;
     buffer.reserve(bufferCapacity);
 
+    DataFilter dataFilter = DataFilter();
+
     size_t gameNum = 0;
     size_t entriesWritten = 0;
     size_t entriesSkipped = 0;
+
+    const auto printProgress = [&]() {
+        assert(entriesWritten % batchSize == 0);
+        std::println("Total batches written: {}", entriesWritten / batchSize);
+        std::println("Total data entries written: {}", entriesWritten);
+        std::println("Total data entries skipped: {}", entriesSkipped);
+        dataFilter.printCounts();
+    };
 
     while (entriesWritten + buffer.size() < targetNumBatches * batchSize) {
         // Read compressed board
@@ -148,24 +149,26 @@ int main(int argc, char* argv[]) {
         Position pos = compressedBoard.decompress();
         pos.validate();
 
-        // Read white WDL
+        // Read game result from white POV
         // https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#game-outcome
-        u8 mfWhiteWdl;
-        mfFile.read(reinterpret_cast<char*>(&mfWhiteWdl), sizeof(mfWhiteWdl));
+        u8 mfWhiteResult;
+        mfFile.read(reinterpret_cast<char*>(&mfWhiteResult), sizeof(mfWhiteResult));
         assert(mfFile);
-        assert(mfWhiteWdl <= 2);
+        assert(mfWhiteResult <= 2);
 
-        const auto getStmWdl = [&]() -> u8 {
-            return pos.mSideToMove == Color::White ? mfWhiteWdl : 2 - mfWhiteWdl;
+        const auto getStmResult = [&]() -> u8 {
+            return pos.mSideToMove == Color::White ? mfWhiteResult : 2 - mfWhiteResult;
         };
 
         // Iterate the game's positions (1 pos = 1 Starway data entry)
         while (entriesWritten + buffer.size() < targetNumBatches * batchSize) {
-            // We will read from the montyformat file into these 3 fields
+            // We will read from the montyformat file into these 4 fields
             MontyformatMove mfBestMove;
             u16 mfScore;
             u8 mfMovesCount;
+            std::array<u8, 218> visits;
 
+            // https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#moves-and-their-associated-information
             mfFile.read(reinterpret_cast<char*>(&mfBestMove), sizeof(mfBestMove));
             assert(mfFile);
 
@@ -187,23 +190,39 @@ int main(int argc, char* argv[]) {
             // https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#move-count
             mfFile.read(reinterpret_cast<char*>(&mfMovesCount), sizeof(mfMovesCount));
             assert(mfFile);
-            assert(mfMovesCount > 0 && mfMovesCount <= 218);
+            assert(mfMovesCount > 0 && static_cast<size_t>(mfMovesCount) <= visits.size());
+
+            // https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#visit-distribution
+            mfFile.read(reinterpret_cast<char*>(&visits), mfMovesCount * sizeof(u8));
+            assert(mfFile);
 
             const double stmScoreSigmoided =
                 static_cast<double>(mfScore) / static_cast<double>(std::numeric_limits<u16>::max());
 
-            // Data filtering
-            bool skip = pos.isInsufficientMaterial();
-            skip |= pos.getFullMoveCounter() < MIN_FULLMOVE_COUNTER;
-            skip |= pos.getHalfMoveClock() > MAX_HALFMOVE_CLOCK;
-            skip |= stmScoreSigmoided < MIN_SCORE_SIGMOIDED;
-            skip |= stmScoreSigmoided > MAX_SCORE_SIGMOIDED;
+            auto legalMoves = getLegalMoves(pos);
+            assert(static_cast<size_t>(mfMovesCount) == legalMoves.size());
+            // assert(legalMoves.contains(mfBestMove));
 
-            if (skip) {
-                // Skip visits distribution
-                mfFile.seekg(sizeof(u8) * mfMovesCount, std::ios::cur);
-                assert(mfFile);
+            // Sort moves in ascending order since that's how visits in montyformat are ordered
+            std::sort(legalMoves.begin(),
+                      legalMoves.end(),
+                      [](const MontyformatMove a, const MontyformatMove b) {
+                          return a.asU16() < b.asU16();
+                      });
 
+            i32 bestMoveVisits = -1;
+            for (size_t i = 0; i < legalMoves.size(); i++) {
+                if (legalMoves[i] == mfBestMove) {
+                    bestMoveVisits = visits[i];
+                    break;
+                }
+            }
+
+            assert(bestMoveVisits >= 0);
+
+            // Filter out this data entry?
+            if (dataFilter.shouldSkip(
+                    pos, legalMoves.size(), stmScoreSigmoided, static_cast<u8>(bestMoveVisits))) {
                 pos.makeMove(mfBestMove);
                 pos.validate();
 
@@ -214,37 +233,21 @@ int main(int argc, char* argv[]) {
             buffer.push_back(StarwayDataEntry());
             StarwayDataEntry& dataEntry = buffer.back();
 
-            dataEntry.setMiscData(pos, getStmWdl(), mfMovesCount);
+            dataEntry.setMiscData(pos, getStmResult(), mfMovesCount);
             dataEntry.setOccAndPieces(pos);
             dataEntry.mStmScore = mfScore;
 
             dataEntry.validate();
 
-            auto legalMoves = getLegalMoves(pos);
-            assert(static_cast<size_t>(mfMovesCount) == legalMoves.size());
-            assert(legalMoves.contains(mfBestMove));
-
-            // Sort moves in ascending order since that's how visits in montyformat are ordered
-            std::sort(legalMoves.begin(),
-                      legalMoves.end(),
-                      [](const MontyformatMove a, const MontyformatMove b) {
-                          return a.asU16() < b.asU16();
-                      });
-
-            // Read visits distribution (looping the legal moves)
-            // https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#visit-distribution
+            // Load visits distribution into StarwayDataEntry object
             u8 highestVisits = 0;
-            for (size_t i = 0; i < mfMovesCount; i++) {
-                u8 visits;
-                mfFile.read(reinterpret_cast<char*>(&visits), sizeof(visits));
-                assert(mfFile);
-
+            for (size_t i = 0; i < legalMoves.size(); i++) {
                 const MontyformatMove moveOriented =
                     legalMoves[i].maybeRanksFlipped(pos.mSideToMove);
 
-                dataEntry.mVisits[i] = {.move = moveOriented.asU16(), .visits = visits};
+                dataEntry.mVisits[i] = {.move = moveOriented.asU16(), .visits = visits[i]};
 
-                highestVisits = std::max<u8>(visits, highestVisits);
+                highestVisits = std::max<u8>(visits[i], highestVisits);
             }
 
             assert(highestVisits == 255);
@@ -258,11 +261,8 @@ int main(int argc, char* argv[]) {
                 assert(entriesWritten % batchSize == 0);
 
                 // Log conversion progress once in a while
-                const size_t batchesWritten = entriesWritten / batchSize;
                 std::println("\nCurrently on game #{}", gameNum);
-                std::println("Total batches written: {}", batchesWritten);
-                std::println("Total data entries written: {}", entriesWritten);
-                std::println("Total data entries skipped: {}", entriesSkipped);
+                printProgress();
             }
 
             pos.makeMove(mfBestMove);
@@ -274,13 +274,12 @@ int main(int argc, char* argv[]) {
     entriesWritten += shuffleWriteClearBuffer(buffer, outDataFile, batchOffsetsOutFile, batchSize);
     assert(entriesWritten % batchSize == 0);
 
-    const size_t batchesWritten = entriesWritten / batchSize;
-    std::println("\nParsed {} games", gameNum);
-    std::println("Total batches written: {}", batchesWritten);
-    std::println("Total data entries written: {}", entriesWritten);
-    std::println("Total data entries skipped: {}", entriesSkipped);
+    std::println("\nFinished; parsed {} games", gameNum);
+    printProgress();
 
-    assert(static_cast<size_t>(batchOffsetsOutFile.tellp()) / sizeof(size_t) == batchesWritten);
+    // Number of batch offsets equals number of batches
+    assert(static_cast<size_t>(batchOffsetsOutFile.tellp()) / sizeof(size_t) ==
+           entriesWritten / batchSize);
 
     // Print interleave command
     std::println("\nRun ./interleave {} {} {} {} {} {}",

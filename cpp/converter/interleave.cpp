@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
 
     assert(batchOffsetsInputFile);
 
-    std::println("Batches: {}", batchOffsets.size());
+    std::println("Batches: {}\n", batchOffsets.size());
     assert(batchOffsets.size() > 0);
 
     std::vector<ShuffledChunkOfBatches> chunks;

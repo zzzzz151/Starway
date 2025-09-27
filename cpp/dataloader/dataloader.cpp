@@ -140,14 +140,10 @@ constexpr void loadBatch(const size_t threadId) {
             piecesSeen++;
         }
 
-        // In the batch, set score and WDL of this entry
-
-        const u8 stmWdl = static_cast<u8>(dataEntry.get(Mask::WDL));
-
         batch.stmScoresSigmoided[entryIdx] = static_cast<float>(dataEntry.mStmScore) /
                                              static_cast<float>(std::numeric_limits<u16>::max());
 
-        batch.stmWDLs[entryIdx] = static_cast<float>(stmWdl) / 2.0f;
+        batch.stmResults[entryIdx] = static_cast<float>(dataEntry.get(Mask::STM_RESULT)) / 2.0f;
 
         u32 visitsSum = 0;
         for (size_t i = 0; i < static_cast<size_t>(dataEntry.get(Mask::NUM_MOVES)); i++) {

@@ -13,7 +13,7 @@ NET_NAME = "net"
 CHECKPOINT_TO_LOAD = None
 
 INPUT_SIZE = 768 * 2
-HIDDEN_SIZE = 128 # The final hidden layer is twice as big
+HIDDEN_SIZE = 128
 POLICY_OUTPUT_SIZE = 1882
 
 # 1 superbatch = 100 million positions
@@ -44,7 +44,8 @@ FT_Q = 181
 
 assert NET_NAME != ""
 if CHECKPOINT_TO_LOAD: assert os.path.exists(CHECKPOINT_TO_LOAD)
-assert HIDDEN_SIZE > 0
+assert HIDDEN_SIZE > 0 and HIDDEN_SIZE <= 1024
+assert HIDDEN_SIZE % 32 == 0
 assert POLICY_OUTPUT_SIZE > 0
 assert START_SUPERBATCH > 0
 if not CHECKPOINT_TO_LOAD: assert START_SUPERBATCH == 1

@@ -53,10 +53,12 @@ int main(int argc, char* argv[]) {
     const double stmScoreSigmoided =
         static_cast<double>(entry.mStmScore) / static_cast<double>(std::numeric_limits<u16>::max());
 
+    const double stmResult = static_cast<double>(entry.get(Mask::STM_RESULT)) / 2.0f;
+
     std::println("Num pieces: {}", std::popcount(entry.mOccupied));
     std::println("Side to move: {}", entry.get(Mask::STM) == 0 ? "White" : "Black");
     std::println("In check: {}", entry.get(Mask::IN_CHECK) ? "true" : "false");
     std::println("Legal moves: {}", entry.get(Mask::NUM_MOVES));
-    std::println("Stm score sigmoided: {}", stmScoreSigmoided);
-    std::println("Stm WDL (0.0, 0.5, 1.0): {}", static_cast<float>(entry.get(Mask::WDL)) / 2.0f);
+    std::println("Stm score sigmoided: {:.4f}", stmScoreSigmoided);
+    std::println("Stm game result (0.0, 0.5, 1.0): {}", stmResult);
 }
