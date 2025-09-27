@@ -20,9 +20,7 @@ __global__ void ft_forward_kernel(
         return;
     }
 
-    float* hiddenNeuron = &output[entryIdx * hiddenSize + hiddenNeuronIdx];
-
-    *hiddenNeuron = biases[hiddenNeuronIdx];
+    float sum = biases[hiddenNeuronIdx];
 
     for (int i = 0; i < MAX_ACTIVE_FEATURES; i++) {
         const int featureIdx = activeFeatures[entryIdx * MAX_ACTIVE_FEATURES + i];
@@ -32,8 +30,10 @@ __global__ void ft_forward_kernel(
             break;
         }
 
-        *hiddenNeuron += weights[featureIdx * hiddenSize + hiddenNeuronIdx];
+        sum += weights[featureIdx * hiddenSize + hiddenNeuronIdx];
     }
+
+    output[entryIdx * hiddenSize + hiddenNeuronIdx] = sum;
 }
 
 __global__ void ft_backward_kernel(
@@ -55,6 +55,10 @@ __global__ void ft_backward_kernel(
     }
 
     const float myOutputGrad = outputGrad[entryIdx * hiddenSize + hiddenNeuronIdx];
+
+    if (myOutputGrad == 0.0f) {
+        return;
+    }
 
     atomicAdd(&biasesGrad[hiddenNeuronIdx], myOutputGrad);
 

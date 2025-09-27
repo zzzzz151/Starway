@@ -26,7 +26,7 @@ SAVE_INTERVAL = 30 # Save net checkpoint every SAVE_INTERVAL superbatches
 DATA_FILE_PATH = "interleaved_data.sw"
 BATCH_OFFSETS_FILE_PATH = "interleaved_batch_offsets.bin"
 BATCH_SIZE = 16384
-THREADS = 12
+CPU_THREADS = 12
 
 # Learning rate schedule
 LR = 0.001 * (0.99**(START_SUPERBATCH - 1))
@@ -55,7 +55,7 @@ assert SAVE_INTERVAL > 0
 assert os.path.exists(DATA_FILE_PATH)
 assert os.path.exists(BATCH_OFFSETS_FILE_PATH)
 assert BATCH_SIZE > 0
-assert THREADS > 0
+assert CPU_THREADS > 0
 assert LR > 0.0 and LR_DROP_INTERVAL > 0 and LR_MULTIPLIER > 0.0
 assert WDL_WEIGHT >= 0.0 and WDL_WEIGHT <= 1.0
 assert VALUE_LOSS_WEIGHT >= 0.0 and VALUE_LOSS_WEIGHT <= 1.0

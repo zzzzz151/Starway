@@ -28,7 +28,7 @@ if __name__ == "__main__":
     print("Data file:", DATA_FILE_PATH)
     print("Batch offsets file:", BATCH_OFFSETS_FILE_PATH)
     print("Batch size:", BATCH_SIZE)
-    print("Dataloader threads:", THREADS)
+    print("CPU threads:", CPU_THREADS)
 
     print("LR: start {} multiply by {} every {} superbatches"
         .format(LR, LR_MULTIPLIER, LR_DROP_INTERVAL))
@@ -52,7 +52,7 @@ if __name__ == "__main__":
         ctypes.c_char_p(DATA_FILE_PATH.encode('utf-8')),
         ctypes.c_char_p(BATCH_OFFSETS_FILE_PATH.encode('utf-8')),
         BATCH_SIZE,
-        THREADS
+        CPU_THREADS
     )
 
     print()
