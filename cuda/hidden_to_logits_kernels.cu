@@ -1,7 +1,7 @@
 // #include <hip/hip_runtime.h>
 
 __global__ void hidden_to_logits_forward_kernel(
-    const float* __restrict__ hiddenLayer,  // [HIDDEN_SIZE]
+    const float* __restrict__ hiddenLayer,  // [BATCH_SIZE, HIDDEN_SIZE]
     const float* __restrict__ weights,      // [OUTPUT_SIZE, HIDDEN_SIZE]
     const float* __restrict__ biases,       // [OUTPUT_SIZE]
     // legalLogitIdxs elements go from -1 inclusive to OUTPUT_SIZE exclusive
@@ -45,8 +45,8 @@ __global__ void hidden_to_logits_forward_kernel(
         return;
     }
 
-    float toAdd =
-        hiddenLayer[hiddenNeuronIdx] * weights[legalLogitIdx * hiddenSize + hiddenNeuronIdx];
+    float toAdd = hiddenLayer[entryIdx * hiddenSize + hiddenNeuronIdx] *
+                  weights[legalLogitIdx * hiddenSize + hiddenNeuronIdx];
 
     if (hiddenNeuronIdx == 0) {
         toAdd += biases[legalLogitIdx];
