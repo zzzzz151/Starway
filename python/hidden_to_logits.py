@@ -57,7 +57,7 @@ class HiddenToLogitsFunction(torch.autograd.Function):
 
         batch_size = legal_moves_idxs.shape[0]
 
-        output = torch.empty(
+        output = torch.zeros(
             batch_size,
             MAX_MOVES_PER_POS,
             dtype=torch.float32,
