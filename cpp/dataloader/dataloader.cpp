@@ -83,8 +83,6 @@ constexpr void loadBatch(const size_t threadId) {
     std::fill(
         batch.activeFeaturesNtm, batch.activeFeaturesNtm + BATCH_SIZE * MAX_PIECES_PER_POS, -1);
 
-    batch.totalLegalMoves = 0;
-
     const auto mirrorVAxis = [](const Square kingSq) -> bool {
         return static_cast<i32>(fileOf(kingSq)) < static_cast<i32>(File::E);
     };
@@ -145,32 +143,31 @@ constexpr void loadBatch(const size_t threadId) {
 
         batch.stmResults[entryIdx] = static_cast<float>(dataEntry.get(Mask::STM_RESULT)) / 2.0f;
 
+        const size_t numMoves = static_cast<size_t>(dataEntry.get(Mask::NUM_MOVES));
+
         u32 visitsSum = 0;
-        for (size_t i = 0; i < static_cast<size_t>(dataEntry.get(Mask::NUM_MOVES)); i++) {
+        for (size_t i = 0; i < numMoves; i++) {
             visitsSum += dataEntry.mVisits[i].visits;
         }
 
-        for (size_t i = 0; i < static_cast<size_t>(dataEntry.get(Mask::NUM_MOVES)); i++) {
+        for (size_t i = 0; i < numMoves; i++) {
             const auto [moveU16, visitsU8] = dataEntry.mVisits[i];
 
             const MontyformatMove moveOriented = mirrorVAxis(ourKingSqOriented)
                                                      ? MontyformatMove(moveU16).filesFlipped()
                                                      : MontyformatMove(moveU16);
 
-            const size_t moveIdx = mapMoveIdx(moveOriented);
+            idx = entryIdx * MAX_MOVES_PER_POS + i;
 
-            // Store tuple (entryIdx, moveIdx, visitsPercent)
+            batch.legalMovesIdxs[idx] = static_cast<i16>(mapMoveIdx(moveOriented));
+            batch.visitsPercent[idx] = static_cast<float>(visitsU8) / static_cast<float>(visitsSum);
+        }
 
-            batch.legalMovesIdxsAndVisitsPercent[batch.totalLegalMoves * 3] =
-                static_cast<float>(entryIdx);
+        for (size_t i = numMoves; i < MAX_MOVES_PER_POS; i++) {
+            idx = entryIdx * MAX_MOVES_PER_POS + i;
 
-            batch.legalMovesIdxsAndVisitsPercent[batch.totalLegalMoves * 3 + 1] =
-                static_cast<float>(moveIdx);
-
-            batch.legalMovesIdxsAndVisitsPercent[batch.totalLegalMoves * 3 + 2] =
-                static_cast<float>(visitsU8) / static_cast<float>(visitsSum);
-
-            batch.totalLegalMoves++;
+            batch.legalMovesIdxs[idx] = -1;
+            batch.visitsPercent[idx] = 0.0f;
         }
     }
 }

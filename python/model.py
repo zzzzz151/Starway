@@ -1,5 +1,6 @@
 from settings import *
 from feature_transformer import FeatureTransformer
+from hidden_to_logits import HiddenToLogits
 import torch
 
 class NetValuePolicy(torch.nn.Module):
@@ -11,7 +12,7 @@ class NetValuePolicy(torch.nn.Module):
 
         # Hidden layer -> output layer
         self.hidden_to_out_value = torch.nn.Linear(HIDDEN_SIZE, 1)
-        self.hidden_to_out_policy = torch.nn.Linear(HIDDEN_SIZE, POLICY_OUTPUT_SIZE)
+        self.hidden_to_out_policy = HiddenToLogits(HIDDEN_SIZE, POLICY_OUTPUT_SIZE)
 
         # Init random weights and biases
         torch.manual_seed(42)
@@ -28,7 +29,6 @@ class NetValuePolicy(torch.nn.Module):
     def forward(self, stm_features_tensor, ntm_features_tensor, legal_moves_idxs_tensor):
         assert stm_features_tensor.dtype == ntm_features_tensor.dtype
         assert len(stm_features_tensor.size()) == len(ntm_features_tensor.size())
-        assert legal_moves_idxs_tensor.dtype == torch.bool
 
         # [BATCH_SIZE, HIDDEN_SIZE]
         hidden_stm = self.ft(stm_features_tensor)
@@ -49,9 +49,8 @@ class NetValuePolicy(torch.nn.Module):
         # [BATCH_SIZE, HIDDEN_SIZE]
         hidden_layer = hidden_layer[:, :, 0] * hidden_layer[:, :, 1]
 
-        # [BATCH_SIZE, POLICY_OUTPUT_SIZE]
-        pred_logits = self.hidden_to_out_policy(hidden_layer)
-        pred_logits[legal_moves_idxs_tensor == False] = -10_000
+        # [BATCH_SIZE, MAX_MOVES_PER_POS]
+        pred_logits = self.hidden_to_out_policy(hidden_layer, legal_moves_idxs_tensor)
 
         # Return predicted value and logits
         return self.hidden_to_out_value(hidden_layer), pred_logits

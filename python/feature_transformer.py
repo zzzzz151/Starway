@@ -21,36 +21,38 @@ ft_backward_kernel = module.get_function(ft_backward_kernel)
 
 class FeatureTransformerFunction(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, active_features, weights, biases):
+    def forward(ctx, active_features: torch.Tensor, weights: torch.Tensor, biases: torch.Tensor):
         assert len(active_features.shape) == 2
         assert active_features.dtype == torch.int32
+        assert active_features.device == DEVICE
         assert active_features.is_cuda
         assert active_features.is_contiguous()
 
         assert len(weights.shape) == 2
         assert weights.dtype == torch.float32
+        assert weights.device == DEVICE
         assert weights.is_cuda
-        assert weights.device == active_features.device
         assert weights.is_contiguous()
 
         assert len(biases.shape) == 1
         assert biases.dtype == torch.float32
+        assert biases.device == DEVICE
         assert biases.is_cuda
-        assert biases.device == active_features.device
         assert biases.is_contiguous()
 
         ctx.save_for_backward(active_features, weights, biases)
 
+        batch_size = active_features.shape[0]
+
         output = torch.empty(
-            BATCH_SIZE,
+            batch_size,
             HIDDEN_SIZE,
             dtype=torch.float32,
-            device=weights.device,
+            device=DEVICE,
             requires_grad=True
         )
 
-        # In training, this is just BATCH_SIZE
-        kernel_blocks_count = active_features.shape[0]
+        kernel_blocks_count = batch_size
 
         ft_forward_kernel(
             (kernel_blocks_count,),
@@ -66,18 +68,16 @@ class FeatureTransformerFunction(torch.autograd.Function):
         assert ctx.needs_input_grad[1]
         assert ctx.needs_input_grad[2]
 
-        out_grad = out_grad.contiguous()
-
         active_features, weights, biases = ctx.saved_tensors
 
-        w_grad = torch.zeros(
-            weights.shape[0], weights.shape[1], dtype=torch.float32, device=weights.device
-        )
+        batch_size = active_features.shape[0]
 
-        b_grad = torch.zeros(biases.shape[0], dtype=torch.float32, device=weights.device)
+        out_grad = out_grad.contiguous()
 
-        # In training, this is just BATCH_SIZE
-        kernel_blocks_count = active_features.shape[0]
+        w_grad = torch.zeros(weights.shape, dtype=torch.float32, device=DEVICE)
+        b_grad = torch.zeros(biases.shape, dtype=torch.float32, device=DEVICE)
+
+        kernel_blocks_count = batch_size
 
         ft_backward_kernel(
             (kernel_blocks_count,),
@@ -91,13 +91,11 @@ class FeatureTransformer(torch.nn.Module):
     def __init__(self, num_inputs: int, num_outputs: int):
         super(FeatureTransformer, self).__init__()
 
-        torch.manual_seed(42)
-
         self.weight = torch.nn.Parameter(
             torch.rand(num_inputs, num_outputs, dtype=torch.float32) * 0.2 - 0.1
         )
 
         self.bias = torch.nn.Parameter(torch.rand(num_outputs, dtype=torch.float32) * 0.2 - 0.1)
 
-    def forward(self, active_features):
+    def forward(self, active_features: torch.Tensor):
         return FeatureTransformerFunction.apply(active_features, self.weight, self.bias)

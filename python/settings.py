@@ -16,6 +16,8 @@ INPUT_SIZE = 768 * 2
 HIDDEN_SIZE = 128
 POLICY_OUTPUT_SIZE = 1882
 
+MAX_MOVES_PER_POS = 64 # Must match the MAX_MOVES_PER_POS in cpp/dataloader/batch.hpp
+
 # 1 superbatch = 100 million positions
 # Total superbatches = END_SUPERBATCH - START_SUPERBATCH + 1
 START_SUPERBATCH = 1
@@ -47,6 +49,7 @@ if CHECKPOINT_TO_LOAD: assert os.path.exists(CHECKPOINT_TO_LOAD)
 assert HIDDEN_SIZE > 0 and HIDDEN_SIZE <= 1024
 assert HIDDEN_SIZE % 32 == 0
 assert POLICY_OUTPUT_SIZE > 0
+assert MAX_MOVES_PER_POS > 0 and MAX_MOVES_PER_POS <= 218
 assert START_SUPERBATCH > 0
 if not CHECKPOINT_TO_LOAD: assert START_SUPERBATCH == 1
 assert END_SUPERBATCH > 0
