@@ -13,8 +13,7 @@ constexpr size_t MAX_MOVES_PER_POS = 64;
 // A batch of N data entries (1 data entry = 1 position)
 struct Batch {
    public:
-    // [entryIdx][MAX_PIECES_PER_POS] arrays
-    // Dataloader will initialize all elements to -1 (no piece) then fill these arrays
+    // [entryIdx][MAX_PIECES_PER_POS] arrays padded with -1
     i16* activeFeaturesStm;
     i16* activeFeaturesNtm;
 
@@ -22,11 +21,10 @@ struct Batch {
     float* stmScoresSigmoided;
     float* stmResults;
 
-    // [entryIdx][MAX_MOVES_PER_POS] array
-    // Dataloader will initialize all elements to -1 (no move) then fill it
+    // [entryIdx][MAX_MOVES_PER_POS] array padded with -1
     i16* legalMovesIdxs;
 
-    // [entryIdx][MAX_MOVES_PER_POS] array
+    // [entryIdx][MAX_MOVES_PER_POS] array padded with 0.0
     float* visitsPercent;
 
     constexpr Batch(const std::size_t batchSize) {

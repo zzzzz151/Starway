@@ -76,13 +76,6 @@ constexpr void loadBatch(const size_t threadId) {
     // Batch to fill
     Batch& batch = gBatches[threadId];
 
-    // Set all features to -1 which indicates no piece
-    std::fill(
-        batch.activeFeaturesStm, batch.activeFeaturesStm + BATCH_SIZE * MAX_PIECES_PER_POS, -1);
-
-    std::fill(
-        batch.activeFeaturesNtm, batch.activeFeaturesNtm + BATCH_SIZE * MAX_PIECES_PER_POS, -1);
-
     const auto mirrorVAxis = [](const Square kingSq) -> bool {
         return static_cast<i32>(fileOf(kingSq)) < static_cast<i32>(File::E);
     };
@@ -137,6 +130,10 @@ constexpr void loadBatch(const size_t threadId) {
             dataEntry.mPieces >>= 4;  // Get the next 4 bits piece ready
             piecesSeen++;
         }
+
+        idx = entryIdx * MAX_PIECES_PER_POS + piecesSeen;
+
+        batch.activeFeaturesStm[idx] = batch.activeFeaturesNtm[idx] = -1;
 
         batch.stmScoresSigmoided[entryIdx] = static_cast<float>(dataEntry.mStmScore) /
                                              static_cast<float>(std::numeric_limits<u16>::max());
