@@ -52,7 +52,12 @@ __global__ void hidden_to_logits_forward_kernel(
         toAdd += biases[legalLogitIdx];
     }
 
-    if (toAdd != 0.0f) {
+    // Warp reduce add
+    for (int offset = warpSize / 2; offset > 0; offset /= 2) {
+        toAdd += __shfl_down(toAdd, offset);
+    }
+
+    if ((threadIdx.x & (warpSize - 1)) == 0 && toAdd != 0.0f) {
         atomicAdd(outputElem, toAdd);
     }
 }
