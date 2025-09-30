@@ -12,7 +12,7 @@ class Batch(ctypes.Structure):
         ('stm_scores_sigmoided', ctypes.POINTER(ctypes.c_float)),
         ('stm_WDLs', ctypes.POINTER(ctypes.c_float)),
         ('legal_moves_idxs', ctypes.POINTER(ctypes.c_int16)),
-        ('visits_percent', ctypes.POINTER(ctypes.c_float)),
+        ('target_policy', ctypes.POINTER(ctypes.c_float)),
     ]
 
     def get_features_tensor(self, is_stm: bool):
@@ -33,5 +33,5 @@ class Batch(ctypes.Structure):
         return torch.from_numpy(arr).to(DEVICE, dtype=torch.float32)
 
     def get_target_policy_tensor(self):
-        arr = np.ctypeslib.as_array(self.visits_percent, shape=(BATCH_SIZE, MAX_MOVES_PER_POS))
+        arr = np.ctypeslib.as_array(self.target_policy, shape=(BATCH_SIZE, MAX_MOVES_PER_POS))
         return torch.from_numpy(arr).to(DEVICE, dtype=torch.float32)

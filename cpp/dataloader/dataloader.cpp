@@ -23,6 +23,7 @@ std::string DATA_FILE_PATH = "";
 std::vector<size_t> BATCH_OFFSETS;
 size_t BATCH_SIZE = 1;
 size_t NUM_THREADS = 1;
+bool TRAIN_POLICY_ON_BEST_MOVE = false;  // Train policy on best move or visits dist?
 
 std::vector<Batch> gBatches = {};  // NUM_THREADS batches
 size_t gTotalBatchesYielded = 0;
@@ -30,13 +31,15 @@ size_t gTotalBatchesYielded = 0;
 extern "C" API void init(const char* dataFilePath,
                          const char* batchOffsetsFilePath,
                          const size_t batchSize,
-                         const size_t numThreads) {
+                         const size_t numThreads,
+                         const bool trainOnBestMove) {
     assert(batchSize > 0);
     assert(numThreads > 0);
 
     DATA_FILE_PATH = dataFilePath;
     BATCH_SIZE = batchSize;
     NUM_THREADS = numThreads;
+    TRAIN_POLICY_ON_BEST_MOVE = trainOnBestMove;
 
     // Open batch offsets file at its end
     std::ifstream batchOffsetsFile(static_cast<std::string>(batchOffsetsFilePath),
@@ -75,6 +78,12 @@ constexpr void loadBatch(const size_t threadId) {
 
     // Batch to fill
     Batch& batch = gBatches[threadId];
+
+    // When training policy on best move instead of visits dist, zero-init batch.targetPolicy
+    // since we will only set 1 element (to 1.0) per data entry in this batch
+    if (TRAIN_POLICY_ON_BEST_MOVE) {
+        std::memset(batch.targetPolicy, 0, BATCH_SIZE * MAX_MOVES_PER_POS * sizeof(float));
+    }
 
     const auto mirrorVAxis = [](const Square kingSq) -> bool {
         return static_cast<i32>(fileOf(kingSq)) < static_cast<i32>(File::E);
@@ -140,12 +149,11 @@ constexpr void loadBatch(const size_t threadId) {
 
         batch.stmResults[entryIdx] = static_cast<float>(dataEntry.get(Mask::STM_RESULT)) / 2.0f;
 
+        // Fill batch.legalMovesIdxs slice for this data entry
+
         const size_t numMoves = static_cast<size_t>(dataEntry.get(Mask::NUM_MOVES));
 
-        u32 visitsSum = 0;
-        for (size_t i = 0; i < numMoves; i++) {
-            visitsSum += dataEntry.mVisits[i].visits;
-        }
+        u32 visitsSum = 0;  // In case we're training policy on visits dist rather than best move
 
         for (size_t i = 0; i < numMoves; i++) {
             const auto [moveU16, visitsU8] = dataEntry.mVisits[i];
@@ -154,17 +162,34 @@ constexpr void loadBatch(const size_t threadId) {
                                                      ? MontyformatMove(moveU16).filesFlipped()
                                                      : MontyformatMove(moveU16);
 
-            idx = entryIdx * MAX_MOVES_PER_POS + i;
+            batch.legalMovesIdxs[entryIdx * MAX_MOVES_PER_POS + i] =
+                static_cast<i16>(mapMoveIdx(moveOriented));
 
-            batch.legalMovesIdxs[idx] = static_cast<i16>(mapMoveIdx(moveOriented));
-            batch.visitsPercent[idx] = static_cast<float>(visitsU8) / static_cast<float>(visitsSum);
+            // In case we're training policy on visits dist rather than best move
+            visitsSum += visitsU8;
         }
 
         for (size_t i = numMoves; i < MAX_MOVES_PER_POS; i++) {
-            idx = entryIdx * MAX_MOVES_PER_POS + i;
+            batch.legalMovesIdxs[entryIdx * MAX_MOVES_PER_POS + i] = -1;
+        }
 
-            batch.legalMovesIdxs[idx] = -1;
-            batch.visitsPercent[idx] = 0.0f;
+        // Fill batch.targetPolicy slice for this data entry
+
+        // When training policy on best move, whole batch.targetPolicy array is already zeroed
+        if (TRAIN_POLICY_ON_BEST_MOVE) {
+            batch.targetPolicy[entryIdx * MAX_MOVES_PER_POS + dataEntry.mBestMoveIdx] = 1.0f;
+            continue;
+        }
+
+        for (size_t i = 0; i < numMoves; i++) {
+            const auto [moveU16, visitsU8] = dataEntry.mVisits[i];
+
+            batch.targetPolicy[entryIdx * MAX_MOVES_PER_POS + i] =
+                static_cast<float>(visitsU8) / static_cast<float>(visitsSum);
+        }
+
+        for (size_t i = numMoves; i < MAX_MOVES_PER_POS; i++) {
+            batch.targetPolicy[entryIdx * MAX_MOVES_PER_POS + i] = 0.0f;
         }
     }
 }

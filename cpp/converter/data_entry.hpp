@@ -64,6 +64,8 @@ struct StarwayDataEntry {
 
     u16 mStmScore;  // Divide by u16 max to get stm score sigmoided
 
+    u8 mBestMoveIdx;
+
     // The number of filled MoveAndVisits elements is the number of legal moves
     // The u16 move is oriented (flipped vertically if black to move)
     std::array<MoveAndVisits, MAX_LEGAL_MOVES_FILTER> mVisits;
@@ -74,8 +76,10 @@ struct StarwayDataEntry {
     constexpr StarwayDataEntry(std::ifstream& ifstream) {
         assert(ifstream);
 
-        ifstream.read(reinterpret_cast<char*>(this),
-                      sizeof(mMiscData) + sizeof(mOccupied) + sizeof(mPieces) + sizeof(mStmScore));
+        const auto partialSize = sizeof(mMiscData) + sizeof(mOccupied) + sizeof(mPieces) +
+                                 sizeof(mStmScore) + sizeof(mBestMoveIdx);
+
+        ifstream.read(reinterpret_cast<char*>(this), partialSize);
 
         assert(ifstream);
 
@@ -188,6 +192,7 @@ struct StarwayDataEntry {
         assert(get(Mask::EP_FILE) <= 8);
         assert(get(Mask::STM_RESULT) <= 2);
         assert(get(Mask::NUM_MOVES) > 0 && get(Mask::NUM_MOVES) <= mVisits.size());
+        assert(mBestMoveIdx < get(Mask::NUM_MOVES));
         assert(std::popcount(mOccupied) > 2 && std::popcount(mOccupied) <= 32);
         assert(bbContainsSq(mOccupied, static_cast<Square>(get(Mask::OUR_KING_SQ_ORIENTED))));
         assert(bbContainsSq(mOccupied, static_cast<Square>(get(Mask::THEIR_KING_SQ_ORIENTED))));

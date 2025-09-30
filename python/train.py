@@ -43,8 +43,17 @@ if __name__ == "__main__":
     dataloader = ctypes.CDLL("./dataloader.dll" if dll_exists else "./dataloader.so")
 
     # Define dataloader functions
+
     dataloader.init.restype = None # void
-    dataloader.init.argtypes = [ctypes.c_char_p, ctypes.c_char_p, ctypes.c_size_t, ctypes.c_size_t]
+
+    dataloader.init.argtypes = [
+        ctypes.c_char_p,
+        ctypes.c_char_p,
+        ctypes.c_size_t,
+        ctypes.c_size_t,
+        ctypes.c_bool
+    ]
+
     dataloader.nextBatch.restype = ctypes.POINTER(Batch)
 
     # Init dataloader
@@ -52,7 +61,8 @@ if __name__ == "__main__":
         ctypes.c_char_p(DATA_FILE_PATH.encode('utf-8')),
         ctypes.c_char_p(BATCH_OFFSETS_FILE_PATH.encode('utf-8')),
         BATCH_SIZE,
-        CPU_THREADS
+        CPU_THREADS,
+        TRAIN_POLICY_ON_BEST_MOVE
     )
 
     print()

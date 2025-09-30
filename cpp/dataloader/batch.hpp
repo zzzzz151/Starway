@@ -25,7 +25,7 @@ struct Batch {
     i16* legalMovesIdxs;
 
     // [entryIdx][MAX_MOVES_PER_POS] array padded with 0.0
-    float* visitsPercent;
+    float* targetPolicy;
 
     constexpr Batch(const std::size_t batchSize) {
         this->activeFeaturesStm = new i16[batchSize * MAX_PIECES_PER_POS];
@@ -36,7 +36,7 @@ struct Batch {
 
         this->legalMovesIdxs = new i16[batchSize * MAX_MOVES_PER_POS];
 
-        this->visitsPercent = new float[batchSize * MAX_MOVES_PER_POS];
+        this->targetPolicy = new float[batchSize * MAX_MOVES_PER_POS];
     }
 
 };  // struct Batch

@@ -210,19 +210,21 @@ int main(int argc, char* argv[]) {
                           return a.asU16() < b.asU16();
                       });
 
-            i32 bestMoveVisits = -1;
+            i32 bestMoveIdx = -1;
             for (size_t i = 0; i < legalMoves.size(); i++) {
                 if (legalMoves[i] == mfBestMove) {
-                    bestMoveVisits = visits[i];
+                    bestMoveIdx = static_cast<i32>(i);
                     break;
                 }
             }
 
-            assert(bestMoveVisits >= 0);
+            assert(bestMoveIdx >= 0);
 
             // Filter out this data entry?
-            if (dataFilter.shouldSkip(
-                    pos, legalMoves.size(), stmScoreSigmoided, static_cast<u8>(bestMoveVisits))) {
+            if (dataFilter.shouldSkip(pos,
+                                      legalMoves.size(),
+                                      stmScoreSigmoided,
+                                      visits[static_cast<size_t>(bestMoveIdx)])) {
                 pos.makeMove(mfBestMove);
                 pos.validate();
 
@@ -236,6 +238,7 @@ int main(int argc, char* argv[]) {
             dataEntry.setMiscData(pos, getStmResult(), mfMovesCount);
             dataEntry.setOccAndPieces(pos);
             dataEntry.mStmScore = mfScore;
+            dataEntry.mBestMoveIdx = static_cast<u8>(bestMoveIdx);
 
             dataEntry.validate();
 

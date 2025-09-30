@@ -12,11 +12,16 @@ NET_NAME = "net"
 # Set to a .pt file to resume training, else set to None
 CHECKPOINT_TO_LOAD = None
 
+# Layer sizes
 INPUT_SIZE = 768 * 2
 HIDDEN_SIZE = 128
 POLICY_OUTPUT_SIZE = 1882
 
-MAX_MOVES_PER_POS = 64 # Must match the MAX_MOVES_PER_POS in cpp/dataloader/batch.hpp
+# Train policy head on best move or visits dist?
+TRAIN_POLICY_ON_BEST_MOVE = True
+
+# Must match the MAX_MOVES_PER_POS in cpp/dataloader/batch.hpp
+MAX_MOVES_PER_POS = 64
 
 # 1 superbatch = 100 million positions
 # Total superbatches = END_SUPERBATCH - START_SUPERBATCH + 1
@@ -35,7 +40,7 @@ LR = 0.001 * (0.99**(START_SUPERBATCH - 1))
 LR_DROP_INTERVAL = 1
 LR_MULTIPLIER = 0.99
 
-WDL_WEIGHT = 0.0
+WDL_WEIGHT = 0.5
 VALUE_LOSS_WEIGHT = 0.99
 
 VALUE_SCALE = 400

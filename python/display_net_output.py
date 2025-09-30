@@ -87,7 +87,7 @@ def get_value_and_policy(net: NetValuePolicy, board: chess.Board) -> (int, dict)
         for move in board.legal_moves
     ]
 
-    legal_moves_idxs_tensor = torch.zeros(POLICY_OUTPUT_SIZE, dtype=torch.bool, device=DEVICE)
+    legal_moves_idxs_tensor = torch.zeros(MAX_MOVES_PER_POS, dtype=torch.int32, device=DEVICE)
 
     for move_oriented in board_oriented.legal_moves:
         pt = board_oriented.piece_at(move_oriented.from_square).piece_type
