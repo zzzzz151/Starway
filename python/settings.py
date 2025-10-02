@@ -17,9 +17,6 @@ INPUT_SIZE = 768 * 2
 HIDDEN_SIZE = 128
 POLICY_OUTPUT_SIZE = 1882
 
-# Train policy head on best move or visits dist?
-TRAIN_POLICY_ON_BEST_MOVE = True
-
 # Must match the MAX_MOVES_PER_POS in cpp/dataloader/batch.hpp
 MAX_MOVES_PER_POS = 64
 
@@ -30,8 +27,7 @@ END_SUPERBATCH = 600
 
 SAVE_INTERVAL = 30 # Save net checkpoint every SAVE_INTERVAL superbatches
 
-DATA_FILE_PATH = "interleaved_data.sw"
-BATCH_OFFSETS_FILE_PATH = "interleaved_batch_offsets.bin"
+DATA_FILE_PATH = "data.sw"
 BATCH_SIZE = 16384
 CPU_THREADS = 12
 
@@ -61,7 +57,6 @@ assert END_SUPERBATCH > 0
 assert START_SUPERBATCH <= END_SUPERBATCH
 assert SAVE_INTERVAL > 0
 assert os.path.exists(DATA_FILE_PATH)
-assert os.path.exists(BATCH_OFFSETS_FILE_PATH)
 assert BATCH_SIZE > 0
 assert CPU_THREADS > 0
 assert LR > 0.0 and LR_DROP_INTERVAL > 0 and LR_MULTIPLIER > 0.0

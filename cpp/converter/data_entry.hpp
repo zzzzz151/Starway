@@ -8,7 +8,6 @@
 #include "../chess/types.hpp"
 #include "../chess/util.hpp"
 #include "../utils.hpp"
-#include "data_filter.hpp"
 
 // Masks for StarwayDataEntry.mMiscData
 // "x-y" includes both x-th and y-th bits
@@ -37,19 +36,8 @@ enum class Mask : u32 {
     // 21-22: Game result (0 if stm lost, 1 if draw, 2 if stm won)
     STM_RESULT = 0b11u << 20,
 
-    // 23-30: number of legal moves
-    NUM_MOVES = 0b1111'1111u << 22
-
-    // 31-32: unused
+    // 23-32: unused
 };
-
-// How the visits are encoded:
-// https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#visit-distribution
-struct MoveAndVisits {
-   public:
-    u16 move;
-    u8 visits;
-} __attribute__((packed));
 
 struct StarwayDataEntry {
    public:
@@ -62,50 +50,11 @@ struct StarwayDataEntry {
     // Other 3 bits is piece type (0-5 including both)
     u128 mPieces;
 
-    u16 mStmScore;  // Divide by u16 max to get stm score sigmoided
+    i16 mStmScore;
 
-    u8 mBestMoveIdx;
-
-    // The number of filled MoveAndVisits elements is the number of legal moves
-    // The u16 move is oriented (flipped vertically if black to move)
-    std::array<MoveAndVisits, MAX_LEGAL_MOVES_FILTER> mVisits;
+    u16 mBestMove;  // Oriented (flipped vertically if black to move)
 
     constexpr StarwayDataEntry() {}  // Does not init fields
-
-    // Note: for the mVisits array, we only read the filled elements (number of legal moves)
-    constexpr StarwayDataEntry(std::ifstream& ifstream) {
-        assert(ifstream);
-
-        const auto partialSize = sizeof(mMiscData) + sizeof(mOccupied) + sizeof(mPieces) +
-                                 sizeof(mStmScore) + sizeof(mBestMoveIdx);
-
-        ifstream.read(reinterpret_cast<char*>(this), partialSize);
-
-        assert(ifstream);
-
-        const size_t numMoves = get(Mask::NUM_MOVES);
-        assert(numMoves > 0 && numMoves <= mVisits.size());
-
-        ifstream.read(reinterpret_cast<char*>(&(this->mVisits)),
-                      static_cast<i64>(numMoves * sizeof(MoveAndVisits)));
-
-        assert(ifstream);
-    }
-
-    // Note: for the mVisits array, we only write the filled elements (number of legal moves)
-    constexpr void writeToOut(std::ofstream& ofstream) const {
-        assert(ofstream);
-
-        const size_t numMoves = get(Mask::NUM_MOVES);
-        assert(numMoves > 0 && numMoves <= mVisits.size());
-
-        const size_t bytesUnused = (mVisits.size() - numMoves) * sizeof(MoveAndVisits);
-
-        ofstream.write(reinterpret_cast<const char*>(this),
-                       static_cast<i64>(sizeof(StarwayDataEntry) - bytesUnused));
-
-        assert(ofstream);
-    }
 
     // Get some field from misc data
     constexpr u32 get(const Mask mask) const {
@@ -123,11 +72,10 @@ struct StarwayDataEntry {
     }
 
     // Calculate and set mMiscData
-    constexpr void setMiscData(const Position& pos, const u8 stmResult, const u8 numMoves) {
+    constexpr void setMiscData(const Position& pos, const u8 stmResult) {
         mMiscData = 0;
 
         assert(stmResult <= 2);
-        assert(numMoves > 0 && static_cast<size_t>(numMoves) <= mVisits.size());
 
         const Square ourKingSqOriented =
             maybeRankFlipped(pos.getKingSq(pos.mSideToMove), pos.mSideToMove);
@@ -151,7 +99,6 @@ struct StarwayDataEntry {
         }
 
         set(Mask::STM_RESULT, stmResult);
-        set(Mask::NUM_MOVES, numMoves);
     }
 
     // Calculate and set mOccupied and mPieces
@@ -191,11 +138,12 @@ struct StarwayDataEntry {
     constexpr void validate() const {
         assert(get(Mask::EP_FILE) <= 8);
         assert(get(Mask::STM_RESULT) <= 2);
-        assert(get(Mask::NUM_MOVES) > 0 && get(Mask::NUM_MOVES) <= mVisits.size());
-        assert(mBestMoveIdx < get(Mask::NUM_MOVES));
         assert(std::popcount(mOccupied) > 2 && std::popcount(mOccupied) <= 32);
         assert(bbContainsSq(mOccupied, static_cast<Square>(get(Mask::OUR_KING_SQ_ORIENTED))));
         assert(bbContainsSq(mOccupied, static_cast<Square>(get(Mask::THEIR_KING_SQ_ORIENTED))));
+        assert(mBestMove > 0);
     }
 
 } __attribute__((packed));  // struct StarwayDataEntry
+
+static_assert(sizeof(StarwayDataEntry) == 32);  // 32 bytes

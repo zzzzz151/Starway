@@ -7,7 +7,6 @@
 #include "../chess/position.hpp"
 #include "../chess/types.hpp"
 #include "../chess/util.hpp"
-#include "../dataloader/move_mapping.hpp"
 #include "../utils.hpp"
 
 // Montyformat compressed board

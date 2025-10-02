@@ -9,18 +9,20 @@ NN trainer for [Starlynn](https://github.com/zzzzz151/Starlynn) engine
 
 - Convert montyformat data to Starway format by running
 
-    `./montyformat_to_starway <montyformat file> <output data file> <max RAM usage in MB> <batch offsets output file> <batch size> <batches to output>`
-
-    and then
-
-    `./interleave <input Starway data file> <output Starway data file> <converter's buffer capacity> <batch offsets input file> <batch offsets output file> <batch size>`
+    ```
+    ./montyformat_to_starway
+        <montyformat file>
+        <output data file>
+        <batch size>
+        <batches to output>
+    ```
 
 - Set training settings in `python/settings.py`
 
 - Start training: run `python3 python/train.py`
     - Checkpoints are saved in `checkpoints` folder
 
-- Optionally, quantize net: run `python3 python/quantize.py`
+- Optionally, quantize and export net to binary file: run `python3 python/quantize.py`
 
 # Credits
 

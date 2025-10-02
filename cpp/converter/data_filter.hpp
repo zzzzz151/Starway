@@ -1,6 +1,5 @@
 #pragma once
 
-#include <limits>
 #include <print>
 
 #include "../chess/types.hpp"
@@ -9,28 +8,20 @@
 
 constexpr u16 MIN_FULLMOVE_COUNTER = 9;
 constexpr u8 MAX_HALFMOVE_CLOCK = 89;
+constexpr i16 MAX_SCORE = 1838;
 constexpr size_t MAX_LEGAL_MOVES_FILTER = 64;
-constexpr double MIN_SCORE_SIGMOIDED = 0.01;
-constexpr double MAX_SCORE_SIGMOIDED = 1.0 - MIN_SCORE_SIGMOIDED;
-
-static_assert(MIN_SCORE_SIGMOIDED > 0.0 && MIN_SCORE_SIGMOIDED < 1.0);
-static_assert(MAX_SCORE_SIGMOIDED > 0.0 && MAX_SCORE_SIGMOIDED < 1.0);
-static_assert(MIN_SCORE_SIGMOIDED < MAX_SCORE_SIGMOIDED);
 
 struct DataFilter {
    private:
     size_t mInsufficientMaterial = 0;
     size_t mBadFullmoveCounter = 0;
     size_t mBadHalfmoveClock = 0;
-    size_t mTooManyMoves = 0;
     size_t mExtremeScore = 0;
-    size_t mBestMoveZeroVisits = 0;
+    size_t mZeroLegalMoves = 0;
+    size_t mTooManyMoves = 0;
 
    public:
-    constexpr bool shouldSkip(const Position& pos,
-                              const size_t numMoves,
-                              const double scoreSigmoided,
-                              const u8 bestMoveVisits) {
+    constexpr bool shouldSkip(const Position& pos, const i16 score, const size_t numMoves) {
         bool skip = false;
 
         if (pos.isInsufficientMaterial()) {
@@ -48,36 +39,31 @@ struct DataFilter {
             skip = true;
         }
 
-        if (numMoves > MAX_LEGAL_MOVES_FILTER) {
-            mTooManyMoves++;
-            skip = true;
-        }
-
-        if (scoreSigmoided < MIN_SCORE_SIGMOIDED || scoreSigmoided > MAX_SCORE_SIGMOIDED) {
+        if (std::abs(score) > MAX_SCORE) {
             mExtremeScore++;
             skip = true;
         }
 
-        if (bestMoveVisits == 0) {
-            mBestMoveZeroVisits++;
+        if (numMoves == 0) {
+            mZeroLegalMoves++;
+            skip = true;
+        }
+
+        if (numMoves > MAX_LEGAL_MOVES_FILTER) {
+            mTooManyMoves++;
             skip = true;
         }
 
         return skip;
     }
 
-    constexpr void printCounts() const {
+    constexpr void printStats() const {
         std::println("Filter counts:");
         std::println("  Insufficient material: {}", mInsufficientMaterial);
         std::println("  Fullmove counter < {}: {}", MIN_FULLMOVE_COUNTER, mBadFullmoveCounter);
         std::println("  Halfmove clock > {}: {}", MAX_HALFMOVE_CLOCK, mBadHalfmoveClock);
+        std::println("  Abs(score) > {}: {}", MAX_SCORE, mExtremeScore);
+        std::println("  No legal moves: {}", mZeroLegalMoves);
         std::println("  Legal moves > {}: {}", MAX_LEGAL_MOVES_FILTER, mTooManyMoves);
-
-        std::println("  Score sigmoided < {} or > {}: {}",
-                     MIN_SCORE_SIGMOIDED,
-                     MAX_SCORE_SIGMOIDED,
-                     mExtremeScore);
-
-        std::println("  Best move has 0 visits: {}", mBestMoveZeroVisits);
     }
 };

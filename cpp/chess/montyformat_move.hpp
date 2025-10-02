@@ -177,3 +177,5 @@ struct MontyformatMove {
     }
 
 };  // struct MontyformatMove
+
+static_assert(sizeof(MontyformatMove) == sizeof(u16));

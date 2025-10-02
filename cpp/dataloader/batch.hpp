@@ -1,7 +1,5 @@
 #pragma once
 
-#include <span>
-
 #include "../utils.hpp"
 
 constexpr size_t MAX_PIECES_PER_POS = 32;
@@ -18,25 +16,27 @@ struct Batch {
     i16* activeFeaturesNtm;
 
     // [entryIdx] arrays
-    float* stmScoresSigmoided;
+    i16* stmScores;
     float* stmResults;
 
     // [entryIdx][MAX_MOVES_PER_POS] array padded with -1
     i16* legalMovesIdxs;
 
-    // [entryIdx][MAX_MOVES_PER_POS] array padded with 0.0
-    float* targetPolicy;
+    // [entryIdx] array
+    u8* bestMoveIdx;
+
+    constexpr Batch() {}
 
     constexpr Batch(const std::size_t batchSize) {
         this->activeFeaturesStm = new i16[batchSize * MAX_PIECES_PER_POS];
         this->activeFeaturesNtm = new i16[batchSize * MAX_PIECES_PER_POS];
 
-        this->stmScoresSigmoided = new float[batchSize];
+        this->stmScores = new i16[batchSize];
         this->stmResults = new float[batchSize];
 
         this->legalMovesIdxs = new i16[batchSize * MAX_MOVES_PER_POS];
 
-        this->targetPolicy = new float[batchSize * MAX_MOVES_PER_POS];
+        this->bestMoveIdx = new u8[batchSize];
     }
 
 };  // struct Batch

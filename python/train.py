@@ -26,7 +26,7 @@ if __name__ == "__main__":
 
     print("Save interval: every {} superbatches".format(SAVE_INTERVAL))
     print("Data file:", DATA_FILE_PATH)
-    print("Batch offsets file:", BATCH_OFFSETS_FILE_PATH)
+    print("Data entries:", os.path.getsize(DATA_FILE_PATH) / 32.0)
     print("Batch size:", BATCH_SIZE)
     print("CPU threads:", CPU_THREADS)
 
@@ -43,27 +43,13 @@ if __name__ == "__main__":
     dataloader = ctypes.CDLL("./dataloader.dll" if dll_exists else "./dataloader.so")
 
     # Define dataloader functions
-
+    dataloader.init.argtypes = [ctypes.c_char_p, ctypes.c_size_t, ctypes.c_size_t]
     dataloader.init.restype = None # void
-
-    dataloader.init.argtypes = [
-        ctypes.c_char_p,
-        ctypes.c_char_p,
-        ctypes.c_size_t,
-        ctypes.c_size_t,
-        ctypes.c_bool
-    ]
-
-    dataloader.nextBatch.restype = ctypes.POINTER(Batch)
+    dataloader.next_batch.argtypes = [ctypes.c_size_t]
+    dataloader.next_batch.restype = ctypes.POINTER(Batch)
 
     # Init dataloader
-    dataloader.init(
-        ctypes.c_char_p(DATA_FILE_PATH.encode('utf-8')),
-        ctypes.c_char_p(BATCH_OFFSETS_FILE_PATH.encode('utf-8')),
-        BATCH_SIZE,
-        CPU_THREADS,
-        TRAIN_POLICY_ON_BEST_MOVE
-    )
+    dataloader.init(DATA_FILE_PATH.encode("utf-8"), BATCH_SIZE, CPU_THREADS)
 
     print()
 
@@ -103,7 +89,7 @@ if __name__ == "__main__":
             print("LR for superbatch #{}:".format(superbatch_num), round(param_group['lr'], 8))
 
         for batch_num in range(1, BATCHES_PER_SUPERBATCH + 1):
-            batch = dataloader.nextBatch().contents
+            batch = dataloader.next_batch(BATCH_SIZE).contents
 
             optimizer.zero_grad(set_to_none=True)
 
@@ -113,8 +99,8 @@ if __name__ == "__main__":
                 batch.get_legal_moves_idxs_tensor()
             )
 
-            expected_value = batch.get_stm_scores_sigmoided_tensor() * SCORE_WEIGHT
-            expected_value += batch.get_stm_wdl_tensor() * WDL_WEIGHT
+            stm_scores = torch.sigmoid(batch.get_stm_scores_tensor() / float(VALUE_SCALE))
+            expected_value = stm_scores * SCORE_WEIGHT + batch.get_stm_wdl_tensor() * WDL_WEIGHT
 
             value_abs_diff = torch.abs(torch.sigmoid(pred_value) - expected_value)
             value_loss = torch.pow(value_abs_diff, 2.5).mean()
