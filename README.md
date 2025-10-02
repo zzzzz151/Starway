@@ -2,7 +2,7 @@
 
 NN trainer for [Starlynn](https://github.com/zzzzz151/Starlynn) engine
 
-# Usage (Linux only)
+# Usage
 
 - Compile data converter and dataloader with `make converter` and `make dataloader`
     - Do not use compile flag `-DNDEBUG`, this repo is meant to be used with asserts enabled!
@@ -10,7 +10,7 @@ NN trainer for [Starlynn](https://github.com/zzzzz151/Starlynn) engine
 - Convert montyformat data to Starway format by running
 
     ```
-    ./montyformat_to_starway
+    ./montyformat_to_starway[.exe]
         <montyformat file>
         <output data file>
         <batch size>

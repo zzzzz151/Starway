@@ -13,9 +13,8 @@ checkpoints/
 **/*.sw
 **/*.starway
 
-cpp/chess/test
+**/chess-test
 **/montyformat_to_starway
-**/interleave
 **/display_starway_format
 
 !cpp/chess/embeds/*.bin
