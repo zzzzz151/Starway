@@ -25,14 +25,14 @@ format:
 	$(FORMAT_COMMAND)
 
 chess-test: recompile
-	$(CXX) $(CXXFLAGS) cpp/chess/test.cpp -o chess_test$(EXT)
-	./chess_test$(EXT)
+	$(CXX) $(CXXFLAGS) cpp/chess/test.cpp -o chess-test$(EXT)
+	./chess-test$(EXT)
 
 converter: recompile
-	$(CXX) $(CXXFLAGS) cpp/converter/montyformat_to_starway.cpp -o montyformat_to_starway$(EXT)
+	$(CXX) $(CXXFLAGS) cpp/converter/montyformat_to_starway.cpp -o montyformat-to-starway$(EXT)
 
 display-data: recompile
-	$(CXX) $(CXXFLAGS) cpp/display_data.cpp -o display_data$(EXT)
+	$(CXX) $(CXXFLAGS) cpp/display_data.cpp -o display-data$(EXT)
 
 dataloader: recompile
 	$(CXX) $(DATALOADER_CXXFLAGS) cpp/dataloader/dataloader.cpp -o dataloader$(DATALOADER_EXT)

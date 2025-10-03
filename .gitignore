@@ -13,9 +13,9 @@ checkpoints/
 **/*.sw
 **/*.starway
 
-**/chess_test
-**/montyformat_to_starway
-**/display_starway_format
+**/chess-test
+**/montyformat-to-starway
+**/display-data
 
 !cpp/chess/embeds/*.bin
 !**/moves_map_1880.bin
