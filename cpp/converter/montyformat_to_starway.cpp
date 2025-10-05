@@ -101,25 +101,21 @@ int main(int argc, char* argv[]) {
         assert(mfFile);
         assert(mfWhiteResult <= 2);
 
-        const auto getStmResult = [&]() -> u8 {
-            return pos.mSideToMove == Color::White ? mfWhiteResult : 2 - mfWhiteResult;
-        };
-
         // Iterate the game's positions (1 pos = 1 Starway data entry)
         while (entriesWritten < targetNumBatches * batchSize) {
             MontyformatMove mfBestMove;
-            i16 mfScore;
+            i16 mfWhiteScore;
 
             // https://github.com/JonathanHallstrom/montyformat/blob/main/docs/basic_layout.md#moves-and-their-associated-information
             mfFile.read(reinterpret_cast<char*>(&mfBestMove), sizeof(mfBestMove));
             assert(mfFile);
 
-            mfFile.read(reinterpret_cast<char*>(&mfScore), sizeof(mfScore));
+            mfFile.read(reinterpret_cast<char*>(&mfWhiteScore), sizeof(mfWhiteScore));
             assert(mfFile);
 
             // 4 zero bytes = game terminator
             if (mfBestMove.isNull()) {
-                assert(mfScore == 0);
+                assert(mfWhiteScore == 0);
                 break;
             }
 
@@ -132,12 +128,17 @@ int main(int argc, char* argv[]) {
             assert(legalMoves.contains(mfBestMove));
 
             // If not filtered out, write data entry to output data file
-            if (!dataFilter.shouldSkip(pos, mfScore, legalMoves.size())) {
+            if (!dataFilter.shouldSkip(pos, mfWhiteScore, legalMoves.size())) {
                 StarwayDataEntry entry;
 
-                entry.setMiscData(pos, getStmResult());
+                const u8 stmResult =
+                    pos.mSideToMove == Color::White ? mfWhiteResult : 2 - mfWhiteResult;
+
+                entry.setMiscData(pos, stmResult);
                 entry.setOccAndPieces(pos);
-                entry.mStmScore = mfScore;
+
+                entry.mStmScore = pos.mSideToMove == Color::White ? mfWhiteScore
+                                                                  : static_cast<i16>(-mfWhiteScore);
 
                 entry.mBestMove =
                     MontyformatMove(mfBestMove).maybeRanksFlipped(pos.mSideToMove).asU16();
