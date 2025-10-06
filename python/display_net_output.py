@@ -47,6 +47,12 @@ def get_flipped_board(original_board: chess.Board) -> chess.Board:
 
     return flipped_board
 
+def ranks_flipped(move: chess.Move) -> chess.Move:
+    return chess.Move(move.from_square ^ 56, move.to_square ^ 56, move.promotion)
+
+def files_flipped(move: chess.Move) -> chess.Move:
+    return chess.Move(move.from_square ^ 7, move.to_square ^ 7, move.promotion)
+
 def get_move_idx(move_oriented: chess.Move, piece_type: chess.PieceType) -> int:
     assert piece_type >= chess.PAWN and piece_type <= chess.KING
 
@@ -82,48 +88,38 @@ def get_value_and_policy(net: NetValuePolicy, board: chess.Board) -> (int, dict)
         idx = (colored_piece.color == chess.WHITE) * 384 + piece_type * 64 + (square ^ ntm_xor)
         ntm_features_tensor[i] = board.is_check() * 768 + idx
 
-    legal_moves = [
-        (move, chess.Move(move.from_square ^ 56, move.to_square ^ 56, move.promotion))
-        for move in board.legal_moves
-    ]
+    num_legal_moves = len(list(board.legal_moves))
+    assert num_legal_moves > 0 and num_legal_moves <= MAX_MOVES_PER_POS
 
-    legal_moves_idxs_tensor = torch.zeros(MAX_MOVES_PER_POS, dtype=torch.int32, device=DEVICE)
+    legal_logits_idxs_tensor = torch.zeros(MAX_MOVES_PER_POS, dtype=torch.int32, device=DEVICE) - 1
 
-    for move_oriented in board_oriented.legal_moves:
-        pt = board_oriented.piece_at(move_oriented.from_square).piece_type
+    move_idx_idx = dict()
 
-        # Mirror move along vertical axis?
-        move_oriented.from_square ^= stm_xor
-        move_oriented.to_square ^= stm_xor
+    for i, move in enumerate(board_oriented.legal_moves):
+        pt = board_oriented.piece_at(move.from_square).piece_type
 
-        legal_moves_idxs_tensor[get_move_idx(move_oriented, pt)] = True
+        if board_oriented.king(chess.WHITE) % 8 <= 3:
+            move = files_flipped(move)
+
+        legal_logits_idxs_tensor[i] = get_move_idx(move, pt)
 
     pred_value, pred_logits = net.forward(
         stm_features_tensor.unsqueeze(0),
         ntm_features_tensor.unsqueeze(0),
-        legal_moves_idxs_tensor.unsqueeze(0)
+        legal_logits_idxs_tensor.unsqueeze(0)
     )
 
     pred_value = float(pred_value[0].detach())
-    pred_logits = pred_logits[0].detach()
-    pred_policy = torch.nn.functional.softmax(pred_logits, dim=0).tolist()
-    pred_logits = pred_logits.tolist()
+    pred_policy = torch.nn.functional.softmax(pred_logits[0], dim=0).tolist()
+    pred_logits = pred_logits[0].detach().tolist()
 
     legal_moves_policy = dict()
 
-    for move in board.legal_moves:
-        pt = board.piece_at(move.from_square).piece_type
+    for i, move in enumerate(board_oriented.legal_moves):
+        if board.turn == chess.BLACK:
+            move = ranks_flipped(move)
 
-        # Mirror move along the central axes?
-        move_oriented = chess.Move(
-            move.from_square ^ (56 if board.turn == chess.BLACK else 0) ^ stm_xor,
-            move.to_square ^ (56 if board.turn == chess.BLACK else 0) ^ stm_xor,
-            move.promotion
-        )
-
-        move_idx = get_move_idx(move_oriented, pt)
-
-        legal_moves_policy[move] = (pred_logits[move_idx], pred_policy[move_idx])
+        legal_moves_policy[move] = (pred_logits[i], pred_policy[i])
 
     return pred_value, legal_moves_policy
 
@@ -149,8 +145,7 @@ def print_net_output(net: NetValuePolicy, fens: list[str]):
         assert abs(value - value2) < 0.001
 
         for move, (logit, move_policy) in legal_moves_policy.items():
-            move.from_square ^= 56
-            move.to_square ^= 56
+            move = ranks_flipped(move)
 
             assert move in legal_moves_policy2
             assert abs(logit - legal_moves_policy2[move][0]) < 0.001

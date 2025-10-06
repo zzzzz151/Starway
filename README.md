@@ -22,7 +22,7 @@ NN trainer for [Starlynn](https://github.com/zzzzz151/Starlynn) engine
 - Start training: run `python3 python/train.py`
     - Checkpoints are saved in `checkpoints` folder
 
-- Optionally, quantize and export net to binary file: run `python3 python/quantize.py`
+- Export a net checkpoint to binary file: run `python3 python/net_to_bin.py` (optionally quantizes)
 
 # Credits
 
