@@ -15,11 +15,6 @@ FENS = [
     "3b2k1/4P1p1/1K6/8/8/8/8/8 w - - 0 1",
 ]
 
-# [move_oriented_src][move_oriented_dst][promo_piece_type else 6]
-with open("moves_map_1880.bin", "rb") as f:
-    MOVES_MAP_1880 = np.frombuffer(f.read(), dtype=np.int16)
-    MOVES_MAP_1880 = MOVES_MAP_1880.reshape((64, 64, 7))
-
 def get_flipped_board(original_board: chess.Board) -> chess.Board:
     flipped_board = chess.Board.empty()
 
@@ -53,21 +48,35 @@ def ranks_flipped(move: chess.Move) -> chess.Move:
 def files_flipped(move: chess.Move) -> chess.Move:
     return chess.Move(move.from_square ^ 7, move.to_square ^ 7, move.promotion)
 
-def get_move_idx(move_oriented: chess.Move, piece_type: chess.PieceType) -> int:
-    assert piece_type >= chess.PAWN and piece_type <= chess.KING
+def get_move_idx(move: chess.Move, board_oriented: chess.Board) -> int:
+    assert board_oriented.turn == chess.WHITE
 
-    promo_idx = move_oriented.promotion - 1 if move_oriented.promotion else 6
-    idx1880 = MOVES_MAP_1880[move_oriented.from_square][move_oriented.to_square][promo_idx]
-    assert idx1880 >= 0 and idx1880 < 1880
+    piece_moved = board_oriented.piece_at(move.from_square)
+    assert piece_moved
+    pt_moved = piece_moved.piece_type - 1 # 0 inclusive to 5 inclusive
+    assert pt_moved >= 0 and pt_moved < 6
 
-    # Castling?
-    if move_oriented.from_square == chess.E1 and piece_type == chess.KING:
-        if move_oriented.to_square <= 2:
-            return 1880
-        if move_oriented.to_square >= 6:
-            return 1881
+    dst_for_idx = move.to_square
 
-    return idx1880
+    if move.promotion and move.promotion != chess.QUEEN:
+        dst_for_idx ^= 56
+
+    if board_oriented.king(board_oriented.turn) % 8 <= 3:
+        dst_for_idx ^= 7
+
+    if board_oriented.is_en_passant(move):
+        pt_captured = 0
+    elif board_oriented.is_capture(move):
+        piece_captured = board_oriented.piece_at(move.to_square)
+        assert piece_captured
+        pt_captured = piece_captured.piece_type - 1
+        assert pt_captured >= 0 and pt_captured < 5
+    else:
+        pt_captured = 5
+
+    idx = pt_moved * 6 * 64 + dst_for_idx * 6 + pt_captured
+    assert idx >= 0 and idx < POLICY_OUTPUT_SIZE
+    return idx
 
 # The policy is a dictionary that maps chess.Move to tuple (logit: float, move_policy: float)
 def get_value_and_policy(net: NetValuePolicy, board: chess.Board) -> (int, dict):
@@ -93,15 +102,8 @@ def get_value_and_policy(net: NetValuePolicy, board: chess.Board) -> (int, dict)
 
     legal_logits_idxs_tensor = torch.zeros(MAX_MOVES_PER_POS, dtype=torch.int32, device=DEVICE) - 1
 
-    move_idx_idx = dict()
-
     for i, move in enumerate(board_oriented.legal_moves):
-        pt = board_oriented.piece_at(move.from_square).piece_type
-
-        if board_oriented.king(chess.WHITE) % 8 <= 3:
-            move = files_flipped(move)
-
-        legal_logits_idxs_tensor[i] = get_move_idx(move, pt)
+        legal_logits_idxs_tensor[i] = get_move_idx(move, board_oriented)
 
     pred_value, pred_logits = net.forward(
         stm_features_tensor.unsqueeze(0),

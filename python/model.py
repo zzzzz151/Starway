@@ -3,6 +3,11 @@ from feature_transformer import FeatureTransformer
 from hidden_to_logits import HiddenToLogits
 import torch
 
+def pairwise_mul(tensor: torch.Tensor) -> torch.Tensor:
+    assert tensor.shape[1] % 2 == 0
+    tensor = tensor.view(tensor.shape[0], int(tensor.shape[1] / 2), 2)
+    return tensor[:, :, 0] * tensor[:, :, 1]
+
 class NetValuePolicy(torch.nn.Module):
     def __init__(self):
         super().__init__()
@@ -42,12 +47,8 @@ class NetValuePolicy(torch.nn.Module):
         # CReLU activation
         hidden_layer = torch.clamp(hidden_layer, 0, 1)
 
-        # [BATCH_SIZE, HIDDEN_SIZE, 2]
-        hidden_layer = hidden_layer.view(hidden_layer.shape[0], HIDDEN_SIZE, 2)
-
-        # Activation: pairwise mul
         # [BATCH_SIZE, HIDDEN_SIZE]
-        hidden_layer = hidden_layer[:, :, 0] * hidden_layer[:, :, 1]
+        hidden_layer = pairwise_mul(hidden_layer)
 
         # [BATCH_SIZE, MAX_MOVES_PER_POS]
         pred_logits = self.hidden_to_out_policy(hidden_layer, legal_moves_idxs_tensor)

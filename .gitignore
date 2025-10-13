@@ -18,4 +18,3 @@ checkpoints/
 **/display-data
 
 !cpp/chess/embeds/*.bin
-!**/moves_map_1880.bin

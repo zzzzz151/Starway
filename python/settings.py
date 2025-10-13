@@ -14,8 +14,8 @@ CHECKPOINT_TO_LOAD = None
 
 # Layer sizes
 INPUT_SIZE = 768 * 2
-HIDDEN_SIZE = 128
-POLICY_OUTPUT_SIZE = 1882
+HIDDEN_SIZE = 256
+POLICY_OUTPUT_SIZE = 6 * 64 * 6 # Piece type moved, dst square, piece type captured
 
 # Must match the MAX_MOVES_PER_POS in cpp/dataloader/batch.hpp
 MAX_MOVES_PER_POS = 64

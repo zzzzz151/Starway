@@ -10,7 +10,6 @@
 #include "../converter/data_entry.hpp"
 #include "../utils.hpp"
 #include "batch.hpp"
-#include "move_mapping.hpp"
 
 class Worker {
    private:
@@ -135,8 +134,29 @@ class Worker {
                 const MontyformatMove moveOriented =
                     mirrorVAxis(ourKingSqOriented) ? move.filesFlipped() : move;
 
+                const auto [pieceColor, pieceType] = pos.pieceAt(move.getSrc()).value();
+
+                const PieceType ptCaptured = move.isEnPassant() ? PieceType::Pawn
+                                             : move.isCapture()
+                                                 ? pos.pieceAt(move.getDst()).value().second
+                                                 : PieceType::King;
+
+                assert(!move.isPromo() || rankOf(move.getDst()) == Rank::Rank8);
+
+                const Square dstForIdx =
+                    move.isPromo() && move.getPromoPt().value() != PieceType::Queen
+                        ? rankFlipped(moveOriented.getDst())
+                        : moveOriented.getDst();
+
+                // clang-format off
+
+                // [pieceTypeMoved][dstSquare][pieceTypeCaptured]
                 mBatch.legalMovesIdxs[entryIdx * MAX_MOVES_PER_POS + i] =
-                    static_cast<i16>(mapMoveIdx(moveOriented));
+                    static_cast<i16>(pieceType) * 64 * 6
+                    + static_cast<i16>(dstForIdx) * 6
+                    + static_cast<i16>(ptCaptured);
+
+                // clang-format on
 
                 if (move == MontyformatMove(entry.mBestMove)) {
                     mBatch.bestMoveIdx[entryIdx] = static_cast<u8>(i);

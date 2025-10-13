@@ -25,7 +25,6 @@ Usage:
 #include "../chess/position.hpp"
 #include "../chess/types.hpp"
 #include "../chess/util.hpp"
-#include "../dataloader/move_mapping.hpp"
 #include "../utils.hpp"
 #include "compressed_board.hpp"
 #include "data_entry.hpp"
@@ -122,7 +121,6 @@ int main(int argc, char* argv[]) {
             // Validate move
             const PieceType ptMoving = pos.pieceAt(mfBestMove.getSrc()).value().second;
             mfBestMove.validate(pos.mSideToMove == Color::White, ptMoving);
-            assert(mapMoveIdx(mfBestMove.maybeRanksFlipped(pos.mSideToMove)) >= 0);
 
             const auto legalMoves = getLegalMoves(pos);
             assert(legalMoves.contains(mfBestMove));
